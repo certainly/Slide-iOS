@@ -543,6 +543,11 @@ class ContentListingViewController: MediaViewController, UICollectionViewDelegat
 }
 
 extension ContentListingViewController: LinkCellViewDelegate {
+    func cerLookUpPost(_ cell: LinkCellView) {
+
+    }
+
+    
     func openComments(id: String, subreddit: String?) {
         let comment = CommentViewController.init(submission: id, subreddit: subreddit)
         VCPresenter.showVC(viewController: comment, popupIfPossible: true, parentNavigationController: navigationController, parentViewController: self)

@@ -2620,6 +2620,11 @@ extension SingleSubredditViewController: SubmissionMoreDelegate {
         PostActions.showMoreMenu(cell: cell, parent: self, nav: self.navigationController!, mutableList: true, delegate: self, index: tableView.indexPath(for: cell)?.row ?? 0)
     }
 
+    func cerLookUpPost(_ cell: LinkCellView) {
+        PostActions.cerLookUpPost(cell: cell, parent: self, nav: self.navigationController!, mutableList: true, delegate: self, index: tableView.indexPath(for: cell)?.row ?? 0)
+    }
+
+
     func readLater(_ cell: LinkCellView) {
         guard let link = cell.link else {
             return

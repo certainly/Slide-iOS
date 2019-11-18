@@ -11,15 +11,15 @@
 # Change these before running the script
 # -------------------------------------------------
 
-your_developer_id="1234567890" # Your 10 digit developer ID. Example is FTT89576VQ
-your_usr_id="anything.you.want" # Anything you want. Sets USR_DOMAIN in the project.
+your_developer_id="6U63VVECK3" # Your 10 digit developer ID. Example is FTT89576VQ
+your_usr_id="certainlyneo.tt" # Anything you want. Sets USR_DOMAIN in the project.
 
 # -------------------------------------------------
 # Don't change anything below
 # -------------------------------------------------
 
 # These should change if the values are changed in the project.
-project_developer_id="FTT89576VQ"
+project_developer_id="6U63VVECK3"
 project_usr_id="ccrama.me"
 
 # Converts credentials from project's to yours when pulling

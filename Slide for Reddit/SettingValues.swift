@@ -781,7 +781,7 @@ class SettingValues {
     }
     
     public enum CommentAction: String {
-        public static let cases: [CommentAction] = [.UPVOTE, .DOWNVOTE, .MENU, .COLLAPSE, .SAVE, .REPLY, .EXIT, .NEXT, .NONE]
+        public static let cases: [CommentAction] = [.UPVOTE, .DOWNVOTE, .MENU, .COLLAPSE, .SAVE, .REPLY, .EXIT, .NEXT, .NONE, .COPYTEXT]
         public static let cases3D: [CommentAction] = [.PARENT_PREVIEW, .UPVOTE, .DOWNVOTE, .MENU, .COLLAPSE, .SAVE, .REPLY, .EXIT, .NEXT, .NONE]
 
         case UPVOTE = "upvote"
@@ -794,6 +794,8 @@ class SettingValues {
         case NEXT = "next"
         case EXIT = "exit"
         case PARENT_PREVIEW = "parent"
+        case COPYTEXT = "copytext"
+
         
         func getTitle() -> String {
             switch self {
@@ -817,6 +819,8 @@ class SettingValues {
                 return "Next comment page"
             case .PARENT_PREVIEW:
                 return "Parent comment preview"
+            case .COPYTEXT:
+                return "Copy text"
             }
         }
         
@@ -842,6 +846,8 @@ class SettingValues {
                 return "next"
             case .PARENT_PREVIEW:
                 return "comments"
+            case .COPYTEXT:
+                return "next"
             }
         }
         
@@ -867,6 +873,9 @@ class SettingValues {
                 return GMColor.lightGreen500Color()
             case .PARENT_PREVIEW:
                 return GMColor.purple500Color()
+            case .COPYTEXT:
+                return GMColor.lightGreen500Color()
+
             }
         }
     }

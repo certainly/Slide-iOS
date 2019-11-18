@@ -46,7 +46,78 @@ class PostActions: NSObject {
         }
         alertController.show(parent)
     }
-    
+
+    public static func cerLookUpPost(cell: LinkCellView, parent: UIViewController, nav: UINavigationController, mutableList: Bool, delegate: SubmissionMoreDelegate, index: Int) {
+
+        let alert = AlertController.init(title: "Copy text323", message: nil, preferredStyle: .alert)
+
+        alert.setupTheme()
+
+        alert.attributedTitle = NSAttributedString(string: "Copy text456", attributes: [NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 17), NSAttributedString.Key.foregroundColor: ColorUtil.theme.fontColor])
+        let titleStr = cell.title.attributedText!
+        var contStr = (cell.link?.body.decodeHTML())!
+        let targetStr = NSMutableAttributedString(attributedString: titleStr )
+
+        if titleStr.string.contains(contStr.prefix(5)) {
+            if let idx = contStr.firstIndex(of: "\n") {
+                contStr = String(contStr.suffix(from: idx))
+            } else {
+                contStr = ""
+            }
+        }
+
+        contStr = "\n" + contStr 
+
+        targetStr.append(NSAttributedString(string: contStr))
+//        targetStr.append((cell.link?.body.toAttributedString())!)
+        targetStr.addAttributes([NSAttributedString.Key.foregroundColor: ColorUtil.theme.fontColor, NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 14) ], range: NSRange(location: 0, length: targetStr.length))
+
+        let text = UITextView().then {
+            $0.font = FontGenerator.fontOfSize(size: 14, submission: false)
+            $0.textColor = ColorUtil.theme.fontColor
+            $0.backgroundColor = .clear
+            $0.isEditable = false
+//            $0.text = cell.link!.body.decodeHTML()
+//            $0.text = targetStr.string
+            $0.attributedText = targetStr
+        }
+
+        alert.contentView.addSubview(text)
+        text.edgeAnchors == alert.contentView.edgeAnchors
+
+        let height = text.sizeThatFits(CGSize(width: 238, height: CGFloat.greatestFiniteMagnitude)).height
+        text.heightAnchor == height + 100
+
+        //        alert.view.autoresizingMask = .flexibleWidth
+        //        alert.view.subviews[0].addConstraint(widthCst)
+
+//                var heightCst:NSLayoutConstraint = NSLayoutConstraint(item: alert.view, attribute: NSLayoutConstraint.Attribute.height, relatedBy: NSLayoutConstraint.Relation.equal, toItem: nil, attribute: NSLayoutConstraint.Attribute.notAnAttribute, multiplier: 1, constant: 890)
+//                alert.view.addConstraint(heightCst)
+//                alert.view.addConstraint(widthCst)
+
+        alert.addCloseButton()
+        alert.addAction(AlertAction(title: "Copy all", style: AlertAction.Style.normal, handler: { (_) in
+            UIPasteboard.general.string = cell.link!.body.decodeHTML()
+        }))
+
+        alert.addBlurView()
+
+//        let widthCst: NSLayoutConstraint = NSLayoutConstraint(item: alert.view!, attribute: NSLayoutConstraint.Attribute.width, relatedBy: NSLayoutConstraint.Relation.equal, toItem: nil, attribute: NSLayoutConstraint.Attribute.notAnAttribute, multiplier: 1, constant: 800)
+//        alert.view.addConstraint(widthCst)
+//
+//        for constraint in alert.view.constraints {
+//            if constraint.firstAttribute == NSLayoutConstraint.Attribute.width {
+//                print("heerergo： \(constraint.constant)")
+//            }
+//            if constraint.firstAttribute == NSLayoutConstraint.Attribute.width && constraint.constant == 414 {
+//                NSLayoutConstraint.deactivate([constraint])
+//                break
+//            }
+//        }
+
+        parent.present(alert, animated: true)
+   }
+
     public static func handleAction(action: SettingValues.PostOverflowAction, cell: LinkCellView, parent: UIViewController, nav: UINavigationController, mutableList: Bool, delegate: SubmissionMoreDelegate, index: Int) {
         let link = cell.link!
         switch action {

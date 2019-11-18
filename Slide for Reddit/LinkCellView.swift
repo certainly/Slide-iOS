@@ -30,6 +30,8 @@ protocol LinkCellViewDelegate: class {
     func deleteSelf(_ cell: LinkCellView)
     func mod(_ cell: LinkCellView)
     func readLater(_ cell: LinkCellView)
+    func cerLookUpPost(_ cell: LinkCellView)
+
 }
 
 enum CurrentType {
@@ -133,6 +135,11 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
     @objc func readLater(sender: UITapGestureRecognizer? = nil) {
         del?.readLater(self)
     }
+
+    @objc func cerLookUpPost(sender: UITapGestureRecognizer? = nil) {
+        del?.cerLookUpPost(self)
+    }
+
     
     var bannerImage: UIImageView!
     var thumbImageContainer: UIView!
@@ -1965,7 +1972,8 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             } else if SettingValues.hapticFeedback {
                 AudioServicesPlaySystemSound(1519)
             }
-            self.more()
+//            self.more()
+            self.cerLookUpPost()
         }
     }
     
@@ -2052,6 +2060,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             timer!.invalidate()
             cancelled = true
             longBlocking = false
+            self.cerLookUpPost()
         }
     }
     

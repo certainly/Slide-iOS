@@ -1502,24 +1502,24 @@
 				TargetAttributes = {
 					BE20851021588F3900D8F33C = {
 						CreatedOnToolsVersion = 10.0;
-						DevelopmentTeam = FTT89576VQ;
+						DevelopmentTeam = 6U63VVECK3;
 						ProvisioningStyle = Automatic;
 					};
 					BE20851C21588F3A00D8F33C = {
 						CreatedOnToolsVersion = 10.0;
-						DevelopmentTeam = FTT89576VQ;
+						DevelopmentTeam = 6U63VVECK3;
 						LastSwiftMigration = 1100;
 						ProvisioningStyle = Automatic;
 					};
 					BE257A6A21F64AA30082A47E = {
 						CreatedOnToolsVersion = 10.1;
-						DevelopmentTeam = FTT89576VQ;
+						DevelopmentTeam = 6U63VVECK3;
 						LastSwiftMigration = 1100;
 						ProvisioningStyle = Automatic;
 					};
 					BE8FCA031E0C46090063B8EF = {
 						CreatedOnToolsVersion = 8.2;
-						DevelopmentTeam = FTT89576VQ;
+						DevelopmentTeam = 6U63VVECK3;
 						LastSwiftMigration = 1100;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
@@ -2249,7 +2249,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 135;
-				DEVELOPMENT_TEAM = FTT89576VQ;
+				DEVELOPMENT_TEAM = 6U63VVECK3;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				IBSC_MODULE = Slide_for_Apple_Watch_Extension;
 				INFOPLIST_FILE = "Slide for Apple Watch/Info.plist";
@@ -2308,7 +2308,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 135;
-				DEVELOPMENT_TEAM = FTT89576VQ;
+				DEVELOPMENT_TEAM = 6U63VVECK3;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				INFOPLIST_FILE = "Slide for Apple Watch Extension/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
@@ -2363,7 +2363,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 135;
-				DEVELOPMENT_TEAM = FTT89576VQ;
+				DEVELOPMENT_TEAM = 6U63VVECK3;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				INFOPLIST_FILE = "Open in Slide/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 9.0;
@@ -2537,7 +2537,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 135;
-				DEVELOPMENT_TEAM = FTT89576VQ;
+				DEVELOPMENT_TEAM = 6U63VVECK3;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				INFOPLIST_FILE = "Slide for Reddit/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 9.3;

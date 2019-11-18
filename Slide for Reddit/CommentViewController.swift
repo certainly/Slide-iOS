@@ -19,6 +19,17 @@ import YYText
 
 class CommentViewController: MediaViewController, UITableViewDelegate, UITableViewDataSource, TTTAttributedCellDelegate, LinkCellViewDelegate, UISearchBarDelegate, UINavigationControllerDelegate, SubmissionMoreDelegate, ReplyDelegate, UIScrollViewDelegate {
     
+
+
+    func cerLookUpPost(_ cell: LinkCellView) {
+        PostActions.cerLookUpPost(cell: cell, parent: self, nav: self.navigationController!, mutableList: false, delegate: self, index: 0)
+    }
+
+
+
+
+
+
     func hide(index: Int) {
         if index >= 0 {
             self.navigationController?.popViewController(animated: true)
@@ -2514,6 +2525,8 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
             break
         case .PARENT_PREVIEW:
             break
+        case .COPYTEXT:
+            cell.cerCopyText()
         }
     }
 

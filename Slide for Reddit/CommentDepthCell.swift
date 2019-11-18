@@ -1038,6 +1038,38 @@ class CommentDepthCell: MarginedTableViewCell, UIViewControllerPreviewingDelegat
     @objc func save(_ s: AnyObject) {
         parent!.saveComment(self.comment!)
     }
+
+    func cerCopyText() {
+        let alert = AlertController.init(title: "Copy text", message: nil, preferredStyle: .alert)
+
+        alert.setupTheme()
+
+        alert.attributedTitle = NSAttributedString(string: "Copy text12512", attributes: [NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 17), NSAttributedString.Key.foregroundColor: ColorUtil.theme.fontColor])
+
+        let text = UITextView().then {
+            $0.font = FontGenerator.fontOfSize(size: 14, submission: false)
+            $0.textColor = ColorUtil.theme.fontColor
+            $0.backgroundColor = .clear
+            $0.isEditable = false
+            $0.text = self.comment!.body.decodeHTML()
+        }
+
+        alert.contentView.addSubview(text)
+        text.edgeAnchors == alert.contentView.edgeAnchors
+
+        let height = text.sizeThatFits(CGSize(width: 238, height: CGFloat.greatestFiniteMagnitude)).height
+        text.heightAnchor == height + 1
+
+        alert.addCloseButton()
+        alert.addAction(AlertAction(title: "Copy all", style: AlertAction.Style.normal, handler: { (_) in
+            UIPasteboard.general.string = self.comment!.body.decodeHTML()
+        }))
+
+        alert.addBlurView()
+        parent!.present(alert, animated: true)
+    }
+
+
     
     @objc func doDelete(_ s: AnyObject) {
         self.parent!.deleteComment(cell: self)
