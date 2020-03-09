@@ -112,7 +112,32 @@ class SettingsViewController: MediaTableViewController, MFMailComposeViewControl
         self.history.detailTextLabel?.text = "\(History.seenTimes.allKeys.count) visited post" + (History.seenTimes.allKeys.count != 1 ? "s" : "")
         navigationController?.setToolbarHidden(true, animated: false)
         self.icon.imageView?.image = Bundle.main.icon?.getCopy(withSize: CGSize(width: 25, height: 25))
+        
+        if (oldAppMode == .MULTI_COLUMN || oldAppMode == .SINGLE) && SettingValues.appMode == .SPLIT {
+            let alert = UIAlertController(title: "Switching to Split Content mode requires an app restart", message: "Would you like to close Slide now, or have changes applied next time you open Slide?", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Close Slide now", style: UIAlertAction.Style.destructive, handler: { (_) in
+                UserDefaults.standard.synchronize()
+                exit(0)
+            }))
+            alert.addAction(UIAlertAction(title: "Apply later", style: UIAlertAction.Style.cancel, handler: { (_) in
+                self.oldAppMode = SettingValues.appMode
+            }))
+            self.present(alert, animated: true, completion: nil)
+        } else   if (SettingValues.appMode == .MULTI_COLUMN || SettingValues.appMode == .SINGLE) && oldAppMode == .SPLIT {
+            let alert = UIAlertController(title: "Switching to Columned mode requires an app restart", message: "Would you like to close Slide now, or have changes applied next time you open Slide?", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Close Slide now", style: UIAlertAction.Style.destructive, handler: { (_) in
+                UserDefaults.standard.synchronize()
+                exit(0)
+            }))
+            alert.addAction(UIAlertAction(title: "Apply later", style: UIAlertAction.Style.cancel, handler: { (_) in
+                self.oldAppMode = SettingValues.appMode
+            }))
+            self.present(alert, animated: true, completion: nil)
+        }
     }
+    
+    var oldAppMode = SettingValues.appMode
+    
 
     override func loadView() {
         super.loadView()
@@ -326,11 +351,11 @@ class SettingsViewController: MediaTableViewController, MFMailComposeViewControl
         self.dataSaving.imageView?.image = UIImage(sfString: SFSymbol.wifiExclamationmark, overrideString: "data")?.toolbarIcon()
         self.dataSaving.imageView?.tintColor = ColorUtil.theme.fontColor
 
-        self.content.textLabel?.text = "Content"
+        self.content.textLabel?.text = "NSFW Content"
         self.content.accessoryType = .disclosureIndicator
         self.content.backgroundColor = ColorUtil.theme.foregroundColor
         self.content.textLabel?.textColor = ColorUtil.theme.fontColor
-        self.content.imageView?.image = UIImage(sfString: SFSymbol.photoFill, overrideString: "image")?.toolbarIcon()
+        self.content.imageView?.image = UIImage(sfString: SFSymbol.eyeSlashFill, overrideString: "image")?.toolbarIcon()
         self.content.imageView?.tintColor = ColorUtil.theme.fontColor
 
         self.subCell.textLabel?.text = "Visit the Slide subreddit!"
@@ -772,7 +797,6 @@ class SettingsViewController: MediaTableViewController, MFMailComposeViewControl
             }
         default:
             break
-
         }
 
         if let n = ch {

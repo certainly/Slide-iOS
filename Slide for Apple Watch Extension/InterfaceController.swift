@@ -10,7 +10,7 @@ import Foundation
 import WatchConnectivity
 import WatchKit
 
-class InterfaceController: WKInterfaceController {
+class InterfaceController: Votable {
     @IBOutlet weak var table: WKInterfaceTable!
     @IBOutlet weak var loadingImage: WKInterfaceImage!
     
@@ -20,6 +20,10 @@ class InterfaceController: WKInterfaceController {
         // Configure interface objects here.
     }
 
+    override func contextForSegue(withIdentifier segueIdentifier: String, in table: WKInterfaceTable, rowIndex: Int) -> Any? {
+        return table.rowController(at: rowIndex)
+    }
+    
     var links = [NSDictionary]()
     var subs = [String: String]()
     var subsOrdered = [String]()
@@ -92,7 +96,6 @@ class InterfaceController: WKInterfaceController {
         for index in last...(links.count - 1) {
             let item = links[index]
             if let rowController = table.rowController(at: index) as? SubmissionRowController {
-                rowController.parent = self
                 rowController.setData(dictionary: item, color: UIColor(hexString: self.subs[item["subreddit"] as? String ?? ""] ?? "#ffffff"))
             }
         }
@@ -113,12 +116,13 @@ class InterfaceController: WKInterfaceController {
     }
     
     func loadData(_ session: WCSession) {
+        print("Heartbeat")
         if session.isReachable && session.activationState == .activated {
             checkTimer?.invalidate()
             checkTimer = nil
         } else if checkTimer == nil {
             checkTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true, block: { (_) in
-                self.loadData(WCSession.default)
+                self.loadData(session)
             })
             return
         } else {

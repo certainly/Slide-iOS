@@ -86,7 +86,6 @@ class MainViewController: ColorMuxPagingViewController, UINavigationControllerDe
     lazy var currentAccountTransitioningDelegate = CurrentAccountPresentationManager()
     
     override func viewWillAppear(_ animated: Bool) {
-        menuNav?.view.isHidden = false
         super.viewWillAppear(animated)
         self.viewWillAppearActions()
         self.navigationController?.setToolbarHidden(true, animated: false)
@@ -139,9 +138,7 @@ class MainViewController: ColorMuxPagingViewController, UINavigationControllerDe
             if let themeChanged = previousTraitCollection?.hasDifferentColorAppearance(comparedTo: traitCollection) {
                 if themeChanged {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        if UIApplication.shared.applicationState == .active {
-                            self.viewWillAppearActions(override: true)
-                        }
+                        self.viewWillAppearActions(override: true)
                     }
                 }
             }
@@ -361,6 +358,9 @@ class MainViewController: ColorMuxPagingViewController, UINavigationControllerDe
             checkForMail()
         }
         self.navigationController?.delegate = self
+        if !MainViewController.first {
+            menuNav?.animateIn()
+        }
     }
     
     func addAccount(register: Bool) {
@@ -793,6 +793,7 @@ class MainViewController: ColorMuxPagingViewController, UINavigationControllerDe
         
         // Clear the menuNav's searchBar to refresh the menuNav
         self.menuNav?.searchBar.text = nil
+        self.menuNav?.searchBar.endEditing(true)
         
         tabBar.tintColor = ColorUtil.accentColorForSub(sub: vc.sub)
         if !selected {
@@ -1148,8 +1149,7 @@ class MainViewController: ColorMuxPagingViewController, UINavigationControllerDe
                         
                         if !storedTitle.isEmpty && !storedLink.isEmpty {
                             DispatchQueue.main.async {
-                                print("Showing")
-                                SettingValues.showVersionDialog(storedTitle, storedLink, parentVC: self)
+                                SettingValues.showVersionDialog(storedTitle, submissions[0], parentVC: self)
                             }
                         }
                     }

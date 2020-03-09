@@ -33,12 +33,15 @@ class RealmDataWrapper {
         let previews = ((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["resolutions"] as? [Any])
         let preview = (((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["source"] as? [String: Any])?["url"] as? String)
         
-        var videoPreview = (((((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["variants"] as? [String: Any])?["mp4"] as? [String: Any])?["source"] as? [String: Any])?["url"] as? String)
+        var videoPreview = (((json?["media"] as? [String: Any])?["reddit_video"] as? [String: Any])?["hls_url"] as? String)
         if videoPreview != nil && videoPreview!.isEmpty || videoPreview == nil {
             videoPreview = (((json?["media"] as? [String: Any])?["reddit_video"] as? [String: Any])?["fallback_url"] as? String)
         }
         if videoPreview != nil && videoPreview!.isEmpty || videoPreview == nil {
             videoPreview = (((json?["preview"] as? [String: Any])?["reddit_video_preview"] as? [String: Any])?["fallback_url"] as? String)
+        }
+        if videoPreview != nil && videoPreview!.isEmpty || videoPreview == nil {
+            videoPreview = (((((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["variants"] as? [String: Any])?["mp4"] as? [String: Any])?["source"] as? [String: Any])?["url"] as? String)
         }
         if (videoPreview != nil && videoPreview!.isEmpty || videoPreview == nil) && json?["crosspost_parent_list"] != nil {
             videoPreview = (((((json?["crosspost_parent_list"] as? [Any])?.first as? [String: Any])?["preview"] as? [String: Any])?["reddit_video_preview"] as? [String: Any])?["fallback_url"] as? String)
@@ -74,9 +77,10 @@ class RealmDataWrapper {
             turl = submission.thumbnail.removingPercentEncoding ?? submission.thumbnail
         }
         
+        let type = ContentType.getContentType(baseUrl: submission.url)
         if big { //check for low quality image
             if previews != nil && !(previews?.isEmpty)! {
-                if submission.url != nil && ContentType.isImgurImage(uri: submission.url!) {
+                if submission.url != nil && type == .IMGUR {
                     lqUrl = (submission.url?.absoluteString)!
                     lqUrl = lqUrl.substring(0, length: lqUrl.lastIndexOf(".")!) + (SettingValues.lqLow ? "m" : "l") + lqUrl.substring(lqUrl.lastIndexOf(".")!, length: lqUrl.length - lqUrl.lastIndexOf(".")!)
                 } else {
@@ -96,6 +100,11 @@ class RealmDataWrapper {
             
         }
         let rSubmission = RSubmission()
+        do {
+            try rSubmission.smallPreview = ((previews?.first as? [String: Any])?["url"] as? String)?.convertHtmlSymbols() ?? ""
+        } catch {
+            
+        }
         rSubmission.id = submission.getId()
         rSubmission.author = submission.author
         rSubmission.created = NSDate(timeIntervalSince1970: TimeInterval(submission.createdUtc))
@@ -138,6 +147,20 @@ class RealmDataWrapper {
             try rSubmission.videoPreview = (videoPreview ?? "").convertHtmlSymbols() ?? ""
         } catch {
             rSubmission.videoPreview = videoPreview ?? ""
+        }
+        
+        do {
+            try rSubmission.videoMP4 = ((((((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["variants"] as? [String: Any])?["mp4"] as? [String: Any])?["source"] as? [String: Any])?["url"] as? String) ?? "").convertHtmlSymbols() ?? ""
+        } catch {
+            rSubmission.videoMP4 = ""
+        }
+        
+        if rSubmission.videoMP4 == "" {
+            do {
+                try rSubmission.videoMP4 = ((((json?["media"] as? [String: Any])?["reddit_video"] as? [String: Any])?["fallback_url"] as? String) ?? "").convertHtmlSymbols() ?? ""
+            } catch {
+                rSubmission.videoMP4 = ""
+            }
         }
 
         rSubmission.height = h
@@ -214,12 +237,15 @@ class RealmDataWrapper {
         let previews = ((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["resolutions"] as? [Any])
         let preview = (((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["source"] as? [String: Any])?["url"] as? String)
         
-        var videoPreview = (((((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["variants"] as? [String: Any])?["mp4"] as? [String: Any])?["source"] as? [String: Any])?["url"] as? String)
+        var videoPreview = (((json?["media"] as? [String: Any])?["reddit_video"] as? [String: Any])?["hls_url"] as? String)
         if videoPreview != nil && videoPreview!.isEmpty || videoPreview == nil {
             videoPreview = (((json?["media"] as? [String: Any])?["reddit_video"] as? [String: Any])?["fallback_url"] as? String)
         }
         if videoPreview != nil && videoPreview!.isEmpty || videoPreview == nil {
             videoPreview = (((json?["preview"] as? [String: Any])?["reddit_video_preview"] as? [String: Any])?["fallback_url"] as? String)
+        }
+        if videoPreview != nil && videoPreview!.isEmpty || videoPreview == nil {
+            videoPreview = (((((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["variants"] as? [String: Any])?["mp4"] as? [String: Any])?["source"] as? [String: Any])?["url"] as? String)
         }
         if (videoPreview != nil && videoPreview!.isEmpty || videoPreview == nil) && json?["crosspost_parent_list"] != nil {
             videoPreview = (((((json?["crosspost_parent_list"] as? [Any])?.first as? [String: Any])?["preview"] as? [String: Any])?["reddit_video_preview"] as? [String: Any])?["fallback_url"] as? String)
@@ -254,9 +280,10 @@ class RealmDataWrapper {
             turl = submission.thumbnail.removingPercentEncoding ?? submission.thumbnail
         }
         
+        let type = ContentType.getContentType(baseUrl: submission.url)
         if big { //check for low quality image
             if previews != nil && !(previews?.isEmpty)! {
-                if submission.url != nil && ContentType.isImgurImage(uri: submission.url!) {
+                if submission.url != nil && type == .IMGUR {
                     lqUrl = (submission.url?.absoluteString)!
                     lqUrl = lqUrl.substring(0, length: lqUrl.lastIndexOf(".")!) + (SettingValues.lqLow ? "m" : "l") + lqUrl.substring(lqUrl.lastIndexOf(".")!, length: lqUrl.length - lqUrl.lastIndexOf(".")!)
                 } else {
@@ -344,6 +371,21 @@ class RealmDataWrapper {
         } catch {
             rSubmission.videoPreview = videoPreview ?? ""
         }
+        
+        do {
+            try rSubmission.videoMP4 = ((((((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["variants"] as? [String: Any])?["mp4"] as? [String: Any])?["source"] as? [String: Any])?["url"] as? String) ?? "").convertHtmlSymbols() ?? ""
+        } catch {
+            rSubmission.videoMP4 = ""
+        }
+        
+        if rSubmission.videoMP4 == "" {
+            do {
+                try rSubmission.videoMP4 = ((((json?["media"] as? [String: Any])?["reddit_video"] as? [String: Any])?["fallback_url"] as? String) ?? "").convertHtmlSymbols() ?? ""
+            } catch {
+                rSubmission.videoMP4 = ""
+            }
+        }
+
         rSubmission.cakeday = submission.baseJson["author_cakeday"] as? Bool ?? false
 
         if json?["crosspost_parent_list"] != nil {
@@ -532,6 +574,7 @@ class RSubmission: Object {
     @objc dynamic var urlString = ""
     @objc dynamic var distinguished = ""
     @objc dynamic var videoPreview = ""
+    @objc dynamic var videoMP4 = ""
     @objc dynamic var isCrosspost = false
     @objc dynamic var spoiler = false
     @objc dynamic var oc = false
@@ -574,6 +617,7 @@ class RSubmission: Object {
     @objc dynamic var permalink = ""
     @objc dynamic var bannerUrl = ""
     @objc dynamic var thumbnailUrl = ""
+    @objc dynamic var smallPreview = ""
     @objc dynamic var lqUrl = ""
     @objc dynamic var lQ = false
     @objc dynamic var thumbnail = false

@@ -151,8 +151,7 @@ class PostActions: NSObject {
                 presenter.sourceView = cell.contentView
                 presenter.sourceRect = cell.contentView.bounds
             }
-            let currentViewController: UIViewController = UIApplication.shared.keyWindow!.rootViewController!
-            currentViewController.present(activityViewController, animated: true, completion: nil)
+            parent.present(activityViewController, animated: true, completion: nil)
         case .SUBSCRIBE:
             delegate.subscribe(link: cell.link!)
         case .SHARE_REDDIT:
@@ -162,8 +161,7 @@ class PostActions: NSObject {
                 presenter.sourceRect = cell.contentView.bounds
             }
             
-            let currentViewController: UIViewController = UIApplication.shared.keyWindow!.rootViewController!
-            currentViewController.present(activityViewController, animated: true, completion: nil)
+            parent.present(activityViewController, animated: true, completion: nil)
         case .CHROME:
             let open = OpenInChromeController.init()
             open.openInChrome(link.url!, callbackURL: nil, createNewTab: true)

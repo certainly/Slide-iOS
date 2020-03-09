@@ -6,9 +6,11 @@
 //  Copyright © 2017 Haptic Apps. All rights reserved.
 //
 
+import Anchorage
 import AVFoundation
 import Foundation
 import reddift
+import YYText
 
 class SettingValues {
 
@@ -75,6 +77,7 @@ class SettingValues {
     public static let pref_nightMode = "NIGHT_ENABLED"
     public static let pref_nightModeFilter = "NIGHT_FILTER"
     public static let pref_multiColumnCount = "MULTICOLUMN_COUNT"
+    public static let pref_galleryCount = "GALLERY_COUNT"
     public static let pref_nameScrubbing = "NAME_SCRUBBING"
     public static let pref_autoCache = "AUTO_CACHE"
     public static let pref_pro = "RELEASE_PRO_ENABLED"
@@ -128,6 +131,10 @@ class SettingValues {
     public static let pref_hideSeen = "HIDE_SEEN"
     public static let pref_sideGesture = "SIDE_GESTURE"
     public static let pref_disable13Popup = "DISABLE_13_POPUP"
+    public static let pref_thumbTag = "THUMB_TAG"
+    public static let pref_commentLimit = "COMMENT_LIMIT"
+    public static let pref_submissionLimit = "SUBMISSION_LIMIT"
+    public static let pref_hideAwards = "HIDE_AWARDS"
 
     public static let BROWSER_INTERNAL = "internal"
     public static let BROWSER_SAFARI_INTERNAL_READABILITY = "readability"
@@ -179,6 +186,7 @@ class SettingValues {
     public static var commentCountLastVisit = true
     public static var rightThumbnail = true
     public static var multiColumnCount = 2
+    public static var galleryCount = 2
     public static var nameScrubbing = true
     public static var muteYouTube = true
     public static var autoCache = false
@@ -256,6 +264,11 @@ class SettingValues {
     public static var disablePreviews = false
     public static var hideSeen = true
     public static var disable13Popup = true
+    public static var thumbTag = true
+    public static var hideAwards = false
+
+    public static var commentLimit = 95
+    public static var submissionLimit = 13
 
     enum PostViewType: String {
         case LIST = "list"
@@ -406,6 +419,17 @@ class SettingValues {
         }
         return defaultSorting
     }
+    
+    public static func getCommentSorting(forSubreddit: String) -> CommentSort {
+        if let sorting = UserDefaults.standard.string(forKey: forSubreddit.lowercased() + "CommentSorting") {
+            for s in CommentSort.cases {
+                if s.path == sorting {
+                    return s
+                }
+            }
+        }
+        return defaultCommentSorting
+    }
 
     public static func getTimePeriod(forSubreddit: String) -> TimeFilterWithin {
         if let time = UserDefaults.standard.string(forKey: forSubreddit.lowercased() + "Time") {
@@ -419,8 +443,13 @@ class SettingValues {
     }
 
     public static func setSubSorting(forSubreddit: String, linkSorting: LinkSortType, timePeriod: TimeFilterWithin) {
-        UserDefaults.standard.set(linkSorting.path, forKey: forSubreddit + "Sorting")
-        UserDefaults.standard.set(timePeriod.param, forKey: forSubreddit + "Time")
+        UserDefaults.standard.set(linkSorting.path, forKey: forSubreddit.lowercased() + "Sorting")
+        UserDefaults.standard.set(timePeriod.param, forKey: forSubreddit.lowercased() + "Time")
+        UserDefaults.standard.synchronize()
+    }
+
+    public static func setCommentSorting(forSubreddit: String, commentSorting: CommentSort) {
+        UserDefaults.standard.set(commentSorting.path, forKey: forSubreddit.lowercased() + "CommentSorting")
         UserDefaults.standard.synchronize()
     }
 
@@ -433,6 +462,7 @@ class SettingValues {
         
         let columns = 2 // TODO - Maybe calculate per device?
         SettingValues.multiColumnCount = settings.object(forKey: SettingValues.pref_multiColumnCount) == nil ? columns : settings.integer(forKey: SettingValues.pref_multiColumnCount)
+        SettingValues.galleryCount = settings.object(forKey: SettingValues.pref_galleryCount) == nil ? columns : settings.integer(forKey: SettingValues.pref_galleryCount)
         SettingValues.highlightOp = settings.object(forKey: SettingValues.pref_highlightOp) == nil ? true : settings.bool(forKey: SettingValues.pref_highlightOp)
 
         var basePath = settings.string(forKey: SettingValues.pref_defaultSorting)
@@ -466,6 +496,9 @@ class SettingValues {
 
         SettingValues.postFontOffset = settings.object(forKey: SettingValues.pref_postFontSize) == nil ? 0 : settings.integer(forKey: SettingValues.pref_postFontSize)
         SettingValues.commentFontOffset = settings.object(forKey: SettingValues.pref_commentFontSize) == nil ? -2 : settings.integer(forKey: SettingValues.pref_commentFontSize)
+
+        SettingValues.commentLimit = settings.object(forKey: SettingValues.pref_commentLimit) == nil ? 100 : settings.integer(forKey: SettingValues.pref_commentLimit)
+        SettingValues.submissionLimit = settings.object(forKey: SettingValues.pref_submissionLimit) == nil ? 13 : settings.integer(forKey: SettingValues.pref_submissionLimit)
 
         SettingValues.commentDepth = settings.object(forKey: SettingValues.pref_commentDepth) == nil ? 10 : settings.integer(forKey: SettingValues.pref_commentDepth)
         SettingValues.cachedPostsCount = settings.object(forKey: SettingValues.pref_postsToCache) == nil ? 25 : settings.integer(forKey: SettingValues.pref_postsToCache)
@@ -532,6 +565,7 @@ class SettingValues {
         SettingValues.leftThumbnail = settings.bool(forKey: SettingValues.pref_leftThumbnail)
         SettingValues.hideAutomod = settings.bool(forKey: SettingValues.pref_hideAutomod)
         SettingValues.biometrics = settings.bool(forKey: SettingValues.pref_biometrics)
+        SettingValues.thumbTag = settings.object(forKey: SettingValues.pref_thumbTag) == nil ? true : settings.bool(forKey: SettingValues.pref_thumbTag)
         SettingValues.enlargeLinks = settings.object(forKey: SettingValues.pref_enlargeLinks) == nil ? true : settings.bool(forKey: SettingValues.pref_enlargeLinks)
         SettingValues.commentFullScreen = settings.object(forKey: SettingValues.pref_commentFullScreen) == nil ? !pad : settings.bool(forKey: SettingValues.pref_commentFullScreen)
         SettingValues.showLinkContentType = settings.object(forKey: SettingValues.pref_showLinkContentType) == nil ? true : settings.bool(forKey: SettingValues.pref_showLinkContentType)
@@ -544,6 +578,7 @@ class SettingValues {
         SettingValues.showPages = settings.bool(forKey: SettingValues.pref_showPages)
         SettingValues.disableBanner = settings.bool(forKey: SettingValues.pref_disableBanner)
         SettingValues.newIndicator = settings.bool(forKey: SettingValues.pref_newIndicator)
+        SettingValues.hideAwards = settings.bool(forKey: SettingValues.pref_hideAwards)
 
         SettingValues.dataSavingEnabled = settings.bool(forKey: SettingValues.pref_dataSavingEnabled)
         SettingValues.dataSavingDisableWiFi = settings.bool(forKey: SettingValues.pref_dataSavingDisableWifi)
@@ -612,17 +647,41 @@ class SettingValues {
         return settings.object(forKey: "USEDONCE") != nil
     }
 
-    public static func showVersionDialog(_ title: String, _ permalink: String, parentVC: UIViewController) {
+    public static func showVersionDialog(_ title: String, _ submission: Link, parentVC: UIViewController) {
         let settings = UserDefaults.standard
         settings.set(true, forKey: Bundle.main.releaseVersionNumber!)
         settings.set(title, forKey: "vtitle")
-        settings.set(permalink, forKey: "vlink")
+        settings.set(submission.permalink, forKey: "vlink")
         settings.synchronize()
         let finalTitle = title + "\nTap to view Changelog"
         
-        BannerUtil.makeBanner(text: finalTitle, color: GMColor.green500Color(), seconds: 7, context: parentVC, top: true, callback: {
-            VCPresenter.openRedditLink(permalink, parentVC.navigationController, parentVC)
-        })
+        var size = CGSize(width: UIScreen.main.bounds.size.width * 0.85 - 30, height: CGFloat.greatestFiniteMagnitude)
+        let chunk = TextDisplayStackView.createAttributedChunk(baseHTML: submission.selftextHtml, fontSize: 12, submission: true, accentColor: ColorUtil.baseAccent, fontColor: ColorUtil.theme.fontColor, linksCallback: nil, indexCallback: nil)
+        let layout = YYTextLayout(containerSize: size, text: chunk)!
+        let textSize = layout.textBoundingSize
+
+        size = CGSize(width: UIScreen.main.bounds.size.width * 0.85 - 30, height: textSize.height)
+        let body = YYLabel()
+        body.numberOfLines = 0
+        body.attributedText = chunk
+        let detailViewController = UpdateViewController(view: body, size: size)
+        detailViewController.titleView.font = UIFont.boldSystemFont(ofSize: 20)
+        detailViewController.titleView.textColor = ColorUtil.theme.fontColor
+        detailViewController.titleView.text = submission.title
+        detailViewController.preferredContentSize = CGSize(width: UIScreen.main.bounds.size.width * 0.85, height: min(size.height, 300))
+        detailViewController.comments.backgroundColor = ColorUtil.baseAccent
+        detailViewController.comments.setTitle("Join the discussion!", for: UIControl.State.normal)
+        detailViewController.comments.titleLabel?.font = UIFont.boldSystemFont(ofSize: 12)
+        detailViewController.comments.contentHorizontalAlignment = .left
+        detailViewController.comments.addTapGestureRecognizer {
+            detailViewController.dismiss(animated: true) {
+                VCPresenter.openRedditLink(submission.permalink, parentVC.navigationController, parentVC)
+            }
+        }
+        detailViewController.comments.addRightImage(image: UIImage(sfString: SFSymbol.bubbleLeftAndBubbleRightFill, overrideString: "comments")!.navIcon(true), offset: 10)
+        detailViewController.dismissHandler = {() in
+        }
+        VCPresenter.presentModally(viewController: detailViewController, parentVC, CGSize(width: UIScreen.main.bounds.size.width * 0.85, height: min(size.height + 15 + 15 + 20, UIScreen.main.bounds.size.height * 0.6)))
     }
     
     public enum PostOverflowAction: String {
@@ -979,7 +1038,7 @@ class SettingValues {
 
     public enum FabType: String {
 
-        public static let cases: [FabType] = [.HIDE_READ, .HIDE_PERMANENTLY, .SHADOWBOX, .NEW_POST, .SIDEBAR, .RELOAD, .SEARCH]
+        public static let cases: [FabType] = [.HIDE_READ, .HIDE_PERMANENTLY, .SHADOWBOX, .GALLERY, .NEW_POST, .SIDEBAR, .RELOAD, .SEARCH]
 
         case HIDE_READ = "hide"
         case SHADOWBOX = "shadowbox"
@@ -1080,7 +1139,7 @@ class SettingValues {
             case .SINGLE:
                 return "Single column display of submissions"
             case .MULTI_COLUMN:
-                return "Multiple column display of submissions (requires Pro)"
+                return "Multiple column display of submissions \(UIDevice.current.userInterfaceIdiom == .phone ? " (landscape orientation)" : "")"
             }
         }
     }
@@ -1155,5 +1214,65 @@ extension SettingValues {
         set {
             UserDefaults.standard.set(newValue, forKey: "MODAL_VIDEOS_RESPECT_HARDWARE_MUTE_SWITCH")
         }
+    }
+}
+
+class UpdateViewController: UIViewController {
+    var childView = UIView()
+    var titleView = UILabel()
+    var exit = UIImageView()
+    var scrollView = UIScrollView()
+    var estimatedSize: CGSize
+    var comments = UIButton()
+    var dismissHandler: (() -> Void)?
+    init(view: UIView, size: CGSize) {
+        self.estimatedSize = size
+        super.init(nibName: nil, bundle: nil)
+        self.childView = view
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        scrollView = UIScrollView().then {
+            $0.backgroundColor = ColorUtil.theme.foregroundColor
+            $0.isUserInteractionEnabled = true
+        }
+        self.view.addSubviews(scrollView, titleView, comments)
+        titleView.horizontalAnchors == self.view.horizontalAnchors
+        titleView.textAlignment = .center
+        titleView.topAnchor == self.view.topAnchor + 15
+        scrollView.topAnchor == self.titleView.bottomAnchor + 15
+        scrollView.horizontalAnchors == self.view.horizontalAnchors + 10
+        comments.topAnchor == self.scrollView.bottomAnchor + 15
+        comments.bottomAnchor == self.view.bottomAnchor - 15
+        comments.heightAnchor == 40
+        comments.layer.cornerRadius = 10
+        comments.layer.masksToBounds = true
+        comments.horizontalAnchors == self.view.horizontalAnchors + 15
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        scrollView.addSubview(childView)
+        childView.widthAnchor == estimatedSize.width
+        childView.heightAnchor == estimatedSize.height
+        childView.topAnchor == scrollView.topAnchor
+        scrollView.contentSize = estimatedSize
+    }
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        dismissHandler?()
+    }
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
+extension UIButton {
+    func addRightImage(image: UIImage, offset: CGFloat) {
+        self.setImage(image, for: .normal)
+        self.imageView?.translatesAutoresizingMaskIntoConstraints = false
+        self.imageView?.centerYAnchor.constraint(equalTo: self.centerYAnchor, constant: 0.0).isActive = true
+        self.imageView?.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -offset).isActive = true
     }
 }

@@ -43,7 +43,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var collectionsFile: String?
     var totalBackground = true
     var isPro = false
-    
+    var transitionDelegateModal: InsetTransitioningDelegate?
+    var tempWindow: UIWindow?
+
     var orientationLock = UIInterfaceOrientationMask.allButUpsideDown
 
     let migrationBlock: MigrationBlock = { migration, oldSchemaVersion in
@@ -126,7 +128,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         collectionsFile = documentDirectory.appending("/collections.plist")
 
         let config = Realm.Configuration(
-                schemaVersion: 22,
+                schemaVersion: 24,
                 migrationBlock: migrationBlock,
                 deleteRealmIfMigrationNeeded: true)
 
@@ -208,6 +210,32 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let currentVersionInt = Int(build) ?? 0
         
         if lastVersionInt < currentVersionInt {
+            //Clean up broken videos
+            do {
+                var dirPath = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)[0]
+                var directoryContents: NSArray = try FileManager.default.contentsOfDirectory(atPath: dirPath) as NSArray
+                print(dirPath)
+                for path in directoryContents {
+                    let fullPath = dirPath + "/" + (path as! String)
+                    if fullPath.contains(".mp4") {
+                        print(fullPath)
+                        try FileManager.default.removeItem(atPath: fullPath)
+                    }
+                }
+                dirPath = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)[0].substring(0, length: dirPath.length - 7)
+                directoryContents = try FileManager.default.contentsOfDirectory(atPath: dirPath) as NSArray
+                print(dirPath)
+                for path in directoryContents {
+                    let fullPath = dirPath + "/" + (path as! String)
+                    if fullPath.contains(".mp4") {
+                        print(fullPath)
+                        try FileManager.default.removeItem(atPath: fullPath)
+                    }
+                }
+            } catch let e as NSError {
+                print(e)
+            }
+
             //Migration block for build 115
             if currentVersionInt == 115 {
                 if UserDefaults.standard.string(forKey: "theme") == "custom" {
@@ -673,11 +701,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 backView = UIView.init(frame: self.window!.frame)
                 backView?.backgroundColor = ColorUtil.theme.backgroundColor
                 if let window = self.window {
-                    window.addSubview(backView!)
+                    window.insertSubview(backView!, at: 0)
                     backView!.edgeAnchors == window.edgeAnchors
+                    backView!.layer.zPosition = 1
                 }
             }
-                self.backView?.isHidden = false
+            self.backView?.isHidden = false
         }
         totalBackground = false
         // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
@@ -775,7 +804,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         Collections.collectionIDs.write(toFile: collectionsFile!, atomically: true)
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
-
+    
     func refreshSession() {
         // refresh current session token
         do {

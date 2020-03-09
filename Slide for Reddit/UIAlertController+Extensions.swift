@@ -81,13 +81,34 @@ public extension UIAlertController {
     }
 }
 public extension UIActivityViewController {
+    private var alertWindow: UIWindow! {
+        get {
+            return objc_getAssociatedObject(self, &associationKey) as? UIWindow
+        }
+
+        set(newValue) {
+            objc_setAssociatedObject(self, &associationKey, newValue, objc_AssociationPolicy.OBJC_ASSOCIATION_RETAIN)
+        }
+    }
+
     func showWindowless() {
-        let win = UIWindow(frame: UIScreen.main.bounds)
-        let vc = UIViewController()
-        vc.view.backgroundColor = .clear
-        win.rootViewController = vc
-        win.windowLevel = UIWindow.Level.alert + 1
-        win.makeKeyAndVisible()
-        vc.present(self, animated: true, completion: nil)
+        self.alertWindow = UIWindow.init(frame: UIScreen.main.bounds)
+
+        let viewController = UIViewController()
+        self.alertWindow.rootViewController = viewController
+
+        let topWindow = UIApplication.shared.windows.last
+        if let topWindow = topWindow {
+            self.alertWindow.windowLevel = topWindow.windowLevel + 1
+        }
+
+        self.alertWindow.makeKeyAndVisible()
+        self.alertWindow.rootViewController?.present(self, animated: true, completion: nil)
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        self.alertWindow?.isHidden = true
+        self.alertWindow = nil
     }
 }

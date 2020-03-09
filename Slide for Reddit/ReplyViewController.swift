@@ -649,7 +649,7 @@ class ReplyViewController: MediaViewController, UITextViewDelegate {
                         for attr in attrs {
                             if attr.value is YYTextHighlight {
                                 if let url = (attr.value as! YYTextHighlight).userInfo?["url"] as? URL {
-                                    self.doShow(url: url, heroView: nil, heroVC: nil)
+                                    self.doShow(url: url, heroView: nil, finalSize: nil, heroVC: nil)
                                     return
                                 }
                             }
@@ -817,7 +817,7 @@ class ReplyViewController: MediaViewController, UITextViewDelegate {
                     self.doButtons()
                     self.setBarColors(color: ColorUtil.getColorForSub(sub: subreddit))
                 })
-                VCPresenter.presentModally(viewController: search, self)
+                VCPresenter.presentModally(viewController: search, self, nil)
             }
             let text3 = UITextView.init(frame: CGRect.init(x: 0, y: 0, width: CGFloat.greatestFiniteMagnitude, height: 60)).then({
                 $0.isEditable = true
@@ -941,7 +941,7 @@ class ReplyViewController: MediaViewController, UITextViewDelegate {
                         for attr in attrs {
                             if attr.value is YYTextHighlight {
                                 if let url = (attr.value as! YYTextHighlight).userInfo?["url"] as? URL {
-                                    self.doShow(url: url, heroView: nil, heroVC: nil)
+                                    self.doShow(url: url, heroView: nil, finalSize: nil, heroVC: nil)
                                     return
                                 }
                             }
@@ -1179,6 +1179,7 @@ class ReplyViewController: MediaViewController, UITextViewDelegate {
             if textField.isEditable && !first {
                 first = true
                 textField.becomeFirstResponder()
+                textViewDidChange(textField)
                 UIView.animate(withDuration: 0.25) {
                     textField.insertText("")
                 }

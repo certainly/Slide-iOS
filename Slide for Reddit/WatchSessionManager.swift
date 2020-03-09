@@ -35,26 +35,110 @@ public class WatchSessionManager: NSObject, WCSessionDelegate {
             }
         } else if message["comments"] != nil {
             DispatchQueue.main.async {
-               VCPresenter.openRedditLink("https://redd.it/\((message["comments"] as! String))", nil, (UIApplication.shared.delegate as! AppDelegate).window?.rootViewController)
+                let redditSession = (UIApplication.shared.delegate as! AppDelegate).session ?? Session()
+                do {
+                    print(message)
+                    try redditSession.getArticles((message["comments"] as! String).replacingOccurrences(of: "t3_", with: ""), sort: CommentSort.top, comments: message["context"]  == nil ? nil : [(message["context"] as! String).replacingOccurrences(of: "t1_", with: "")], depth: 2, context: 0, limit: 50, completion: { (result) in
+                            switch result {
+                            case .failure(let error):
+                                print(error)
+                            case .success(let tuple):
+                                let listing = tuple.1
+                                var objects = [NSDictionary]()
+                                let children = message["context"]  == nil ? listing.children : (listing.children[0] as! Comment).replies.children
+                                for child in children {
+                                    if let comment = child as? Comment {
+                                        objects.append(["context": comment.id, "id": comment.getId(), "body": comment.bodyHtml, "submission": comment.linkId, "author": comment.author, "created": DateFormatter().timeSince(from: NSDate(timeIntervalSince1970: TimeInterval(comment.createdUtc)), numericDates: true), "score": comment.score, "upvoted": (comment.likes) == VoteDirection.up, "downvoted": (comment.likes) == VoteDirection.down])
+                                        if comment.likes == VoteDirection.down {
+                                            ActionStates.downVotedFullnames.append(comment.getId())
+                                        } else if comment.likes == VoteDirection.up {
+                                            ActionStates.upVotedFullnames.append(comment.getId())
+                                        }
+
+                                    }
+                                }
+                                DispatchQueue.main.async {
+                                    replyHandler(["comments": objects])
+                                }
+                            }
+                        })
+                } catch {
+                }
             }
-        } else if message["upvote"] != nil {
-            let redditSession = (UIApplication.shared.delegate as! AppDelegate).session ?? Session()
+        } else if message["vote"] != nil {
+            let fullname = message["vote"] as? String ?? ""
             do {
-                try redditSession.setVote(.up, name: "t3_" + (message["upvote"] as! String), completion: { (_) in
-                    replyHandler([:])
+                var vote = VoteDirection.none
+                if message["upvote"] as? Bool ?? false == true {
+                    var isUp = false
+                    if ActionStates.upVotedFullnames.contains(fullname) {
+                        isUp = true
+                    }
+                    if !isUp {
+                        vote = .up
+                    }
+                } else if message["downvote"] as? Bool ?? false == true {
+                    var isDown = false
+                    if ActionStates.downVotedFullnames.contains(fullname) {
+                        isDown = true
+                    }
+                    if !isDown {
+                        vote = .down
+                    }
+                }
+                print(vote)
+                try (UIApplication.shared.delegate as? AppDelegate)?.session?.setVote(vote, name: fullname, completion: { (result) in
+                    switch result {
+                    case .success(_):
+                        var message = ["upvoted": (vote == .up), "downvoted": (vote == .down)]
+                        print(message)
+                        replyHandler(message)
+                        if let index = ActionStates.upVotedFullnames.firstIndex(of: fullname) {
+                            ActionStates.upVotedFullnames.remove(at: index)
+                        }
+                        
+                        if let index = ActionStates.downVotedFullnames.firstIndex(of: fullname) {
+                            ActionStates.downVotedFullnames.remove(at: index)
+                        }
+                        
+                        if let index = ActionStates.unvotedFullnames.firstIndex(of: fullname) {
+                            ActionStates.unvotedFullnames.remove(at: index)
+                        }
+                        
+                        switch vote {
+                        case .up:
+                            ActionStates.upVotedFullnames.append(fullname)
+                        case .down:
+                            ActionStates.downVotedFullnames.append(fullname)
+                        default:
+                            ActionStates.unvotedFullnames.append(fullname)
+                        }
+                    case .failure(let error):
+                        print(error)
+                        replyHandler(["failed": true])
+                    }
                 })
             } catch {
                 replyHandler(["failed": true])
             }
         } else if message["readlater"] != nil {
-            ReadLater.addReadLater(id: message["readlater"] as! String, subreddit: message["sub"] as! String)
-            replyHandler([:])
+            DispatchQueue.main.async {
+                if ReadLater.isReadLater(id: message["readlater"] as! String) {
+                    ReadLater.removeReadLater(id: message["readlater"] as! String)
+                    replyHandler(["isReadLater": false])
+                } else {
+                    ReadLater.addReadLater(id: message["readlater"] as! String, subreddit: message["sub"] as! String)
+                    replyHandler(["isReadLater": true])
+                }
+            }
         } else if message["sublist"] != nil {
             var colorDict = [String: String]()
             var sublist = Subscriptions.pinned
             sublist.append(contentsOf: Subscriptions.subreddits)
             for sub in Subscriptions.subreddits {
-                colorDict[sub] = ColorUtil.getColorForSub(sub: sub).hexString()
+                if !sub.contains("m/") {
+                    colorDict[sub] = ColorUtil.getColorForSub(sub: sub).hexString()
+                }
             }
             replyHandler(["subs": colorDict, "orderedsubs": sublist, "pro": SettingValues.isPro])
         } else if message["links"] != nil {
@@ -71,7 +155,11 @@ public class WatchSessionManager: NSObject, WCSessionDelegate {
             DispatchQueue.main.async {
                 let redditSession = (UIApplication.shared.delegate as! AppDelegate).session ?? Session()
                 do {
-                    try redditSession.getList(self.paginator, subreddit: Subreddit.init(subreddit: message["links"] as! String), sort: sort, timeFilterWithin: .day, limit: 10) { (result) in
+                    var sub = message["links"] as! String
+                    if sub == "" {
+                        sub = "all"
+                    }
+                    try redditSession.getList(self.paginator, subreddit: Subreddit.init(subreddit: sub), sort: sort, timeFilterWithin: .day, limit: 10) { (result) in
                         switch result {
                         case .failure(let error):
                             print(error)
@@ -89,7 +177,32 @@ public class WatchSessionManager: NSObject, WCSessionDelegate {
                                         }
                                     }
                                 }
-                                print(dict)
+                                
+                                dict["id"] = ((link as! Link)).getId()
+                                
+                                dict["upvoted"] = ((link as! Link).likes) == VoteDirection.up
+                                dict["downvoted"] = ((link as! Link).likes) == VoteDirection.down
+                                if ((link as! Link).likes) == VoteDirection.down {
+                                    ActionStates.downVotedFullnames.append((link as! Link).getId())
+                                } else if ((link as! Link).likes) == VoteDirection.up {
+                                    ActionStates.upVotedFullnames.append((link as! Link).getId())
+                                }
+                                dict["readLater"] = ReadLater.isReadLater(id: ((link as! Link).id))
+                                dict["bigimage"] = nil
+                                
+                                var json: JSONDictionary?
+                                json = (link as! Link).baseJson
+
+                                let preview = (((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["source"] as? [String: Any])?["url"] as? String)
+                                
+                                if preview != nil && !(preview?.isEmpty())! {
+                                    let burl = (preview!.replacingOccurrences(of: "&amp;", with: "&"))
+                                    let w = (((((json?["preview"] as? [String: Any])?["images"] as? [Any])?.first as? [String: Any])?["source"] as? [String: Any])?["width"] as? Int)!
+                                    if w >= 200 {
+                                        dict["bigimage"] = burl
+                                    }
+                                }
+
                                 results.append(dict)
                             }
                             replyHandler(["links": results])

@@ -216,17 +216,17 @@ class VideoMediaViewController: EmbeddableMediaViewController, UIGestureRecogniz
         view.addSubview(scrubber)
         scrubber.delegate = self
 
-        rewindImageView = UIImageView(image: UIImage(sfString: SFSymbol.backwardEndFill, overrideString: "rewind")?.getCopy(withSize: .square(size: 40), withColor: .white)).then {
+        rewindImageView = UIImageView(image: UIImage(sfString: SFSymbol.backwardEndFill, overrideString: "rewind")?.getCopy(withSize: .square(size: 30), withColor: .white)).then {
             $0.alpha = 0
-            $0.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+            $0.backgroundColor = UIColor.black.withAlphaComponent(0.2)
             $0.layer.cornerRadius = 20
             $0.clipsToBounds = true
         }
         view.addSubview(rewindImageView)
 
-        fastForwardImageView = UIImageView(image: UIImage(sfString: SFSymbol.forwardEndFill, overrideString: "fast_forward")?.getCopy(withSize: .square(size: 40), withColor: .white)).then {
+        fastForwardImageView = UIImageView(image: UIImage(sfString: SFSymbol.forwardEndFill, overrideString: "fast_forward")?.getCopy(withSize: .square(size: 30), withColor: .white)).then {
             $0.alpha = 0
-            $0.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+            $0.backgroundColor = UIColor.black.withAlphaComponent(0.2)
             $0.layer.cornerRadius = 20
             $0.clipsToBounds = true
         }
@@ -583,7 +583,7 @@ class VideoMediaViewController: EmbeddableMediaViewController, UIGestureRecogniz
     func downloadRedditAudio() {
         let key = getKeyFromURL()
         var toLoadAudio = self.data.baseURL!.absoluteString
-        toLoadAudio = toLoadAudio.substring(0, length: toLoadAudio.lastIndexOf("/DASH_") ?? toLoadAudio.length)
+        toLoadAudio = toLoadAudio.substring(0, length: toLoadAudio.lastIndexOf("/") ?? toLoadAudio.length)
         toLoadAudio += "/audio"
         let finalUrl = URL.init(fileURLWithPath: key)
         let localUrlV = URL.init(fileURLWithPath: key.replacingOccurrences(of: ".mp4", with: "video.mp4"))
@@ -635,17 +635,23 @@ class VideoMediaViewController: EmbeddableMediaViewController, UIGestureRecogniz
         self.setProgressViewVisible(false)
         self.size.isHidden = true
 //        self.downloadButton.isHidden = true// TODO: - maybe download videos in the future?
-        let playerItem = AVPlayerItem(url: SettingValues.shouldAutoPlay() ? URL(string: url)! : URL(fileURLWithPath: getKeyFromURL()))
-        videoView.player = AVPlayer(playerItem: playerItem)
-        videoView.player?.actionAtItemEnd = AVPlayer.ActionAtItemEnd.none
-        self.videoView.player?.isMuted = SettingValues.muteVideosInModal
-        
-        scrubber.totalDuration = videoView.player!.currentItem!.asset.duration
-        self.loaded = true
-        displayLink = CADisplayLink(target: self, selector: #selector(displayLinkDidUpdate))
-        displayLink?.add(to: .current, forMode: RunLoop.Mode.default)
-        displayLink?.isPaused = false
-        videoView.player?.play()
+        if let videoUrl = SettingValues.shouldAutoPlay() ? URL(string: url) : URL(fileURLWithPath: getKeyFromURL()) {
+            let playerItem = AVPlayerItem(url: videoUrl)
+            videoView.player = AVPlayer(playerItem: playerItem)
+            videoView.player?.actionAtItemEnd = AVPlayer.ActionAtItemEnd.none
+            self.videoView.player?.isMuted = SettingValues.muteVideosInModal
+            
+            scrubber.totalDuration = videoView.player!.currentItem!.asset.duration
+            self.loaded = true
+            displayLink = CADisplayLink(target: self, selector: #selector(displayLinkDidUpdate))
+            displayLink?.add(to: .current, forMode: RunLoop.Mode.default)
+            displayLink?.isPaused = false
+            videoView.player?.play()
+        } else {
+            self.parent?.dismiss(animated: true, completion: {
+                self.failureCallback?(URL.init(string: url)!)
+            })
+        }
     }
     
     var handlingPlayerItemDidreachEnd = false
@@ -679,13 +685,13 @@ class VideoMediaViewController: EmbeddableMediaViewController, UIGestureRecogniz
         if s.endsWith("/") {
             s = s.substring(0, length: s.length - 1)
         }
-        if s.contains("v.redd.it") && !s.contains("DASH") {
+        if s.contains("v.redd.it") && !s.contains("DASH") && !s.contains("HLSPlaylist.m3u8") {
             if s.endsWith("/") {
                 s = s.substring(0, length: s.length - 2)
             }
             s += "/DASH_9_6_M"
         }
-        if hls {
+        if hls && !s.contains("HLSPlaylist.m3u8") {
             if s.contains("v.redd.it") && s.contains("DASH") {
                 if s.endsWith("/") {
                     s = s.substring(0, length: s.length - 2)
@@ -696,7 +702,9 @@ class VideoMediaViewController: EmbeddableMediaViewController, UIGestureRecogniz
                 if s.endsWith("/") {
                     s = s.substring(0, length: s.length - 2)
                 }
-                s += "/HLSPlaylist.m3u8"
+                if !s.contains("HLSPlaylist") {
+                    s += "/HLSPlaylist.m3u8"
+                }
             }
         }
         return s
@@ -871,7 +879,7 @@ extension VideoMediaViewController {
         } else {
             let tolerance: CMTime = CMTimeMakeWithSeconds(0.001, preferredTimescale: 1000) // 1 ms with a resolution of 1 ms
             let newCMTime = CMTimeMakeWithSeconds(Float64(newTime), preferredTimescale: 1000)
-            self.videoView.player?.seek(to: newCMTime, toleranceBefore: tolerance, toleranceAfter: tolerance) { _ in
+            self.videoView.player?.seek(to: newCMTime, toleranceBefore: CMTime.zero, toleranceAfter: CMTime.zero) { _ in
                 self.videoView.player?.play()
             }
         }
@@ -927,8 +935,7 @@ extension VideoMediaViewController {
         if key.length > 200 {
             key = key.substring(0, length: 200)
         }
-        let paths = NSSearchPathForDirectoriesInDomains(.cachesDirectory, .userDomainMask, true)
-        return paths[0].appending(key + ".mp4")
+        return SDImageCache.shared.diskCachePath + "/" + key + ".mp4"
     }
 }
 
@@ -1238,7 +1245,7 @@ extension VideoMediaViewController: VideoScrubberViewDelegate {
             self.youtubeView.seek(toSeconds: toSeconds, allowSeekAhead: true) // Disable seekahead until the user lets go
         } else {
             let tolerance: CMTime = CMTimeMakeWithSeconds(0.001, preferredTimescale: 1000) // 1 ms with a resolution of 1 ms
-            self.videoView.player?.seek(to: targetTime, toleranceBefore: tolerance, toleranceAfter: tolerance)
+            self.videoView.player?.seek(to: targetTime, toleranceBefore: CMTime.zero, toleranceAfter: CMTime.zero)
         }
     }
 

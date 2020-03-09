@@ -9,6 +9,7 @@
 import Anchorage
 import AudioToolbox
 import AVKit
+import Photos
 import MaterialComponents
 import reddift
 import RLBAlertsPickers
@@ -48,7 +49,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
         if !text.isEmpty {
             self.parentViewController?.showSpoiler(text)
         } else {
-            self.parentViewController?.doShow(url: url, heroView: nil, heroVC: nil)
+            self.parentViewController?.doShow(url: url, heroView: nil, finalSize: nil, heroVC: nil)
         }
     }
 
@@ -112,7 +113,10 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
         let url = self.link!.url ?? URL(string: self.link!.permalink)
         
         let activityViewController: UIActivityViewController = UIActivityViewController(activityItems: self is BannerLinkCellView ? [bannerImage?.image] : [url], applicationActivities: nil)
-        activityViewController.popoverPresentationController?.sourceView = self.contentView
+        if let presenter = activityViewController.popoverPresentationController {
+            presenter.sourceView = self.contentView
+            presenter.sourceRect = self.contentView.bounds
+        }
         self.parentViewController?.present(activityViewController, animated: true, completion: nil)
     }
 
@@ -144,6 +148,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
     var bannerImage: UIImageView!
     var thumbImageContainer: UIView!
     var thumbImage: UIImageView!
+    var thumbText: UILabel!
     var title: YYLabel!
     var score: UILabel!
     var box: UIStackView!
@@ -177,6 +182,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
     var videoView: VideoView!
     var topVideoView: UIView!
     var progressDot: UIView!
+    var spinner: UIActivityIndicatorView!
     var sound: UIButton!
     var updater: CADisplayLink?
     var timeView: UILabel!
@@ -243,8 +249,32 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             $0.contentMode = .scaleAspectFill
             $0.clipsToBounds = true
         }
+        self.thumbText = UILabel().then {
+            $0.accessibilityIdentifier = "Link Type Label"
+            if !ColorUtil.shouldBeNight() {
+                $0.backgroundColor = ColorUtil.theme.fontColor.withAlphaComponent(0.5)
+                $0.textColor = ColorUtil.theme.foregroundColor
+            } else {
+                $0.backgroundColor = ColorUtil.theme.foregroundColor.withAlphaComponent(0.5)
+                $0.textColor = ColorUtil.theme.fontColor
+            }
+            $0.textAlignment = .center
+            $0.adjustsFontSizeToFitWidth = true
+            $0.isHidden = false
+            
+            $0.font = UIFont.boldSystemFont(ofSize: 10)
+            if #available(iOS 11.0, *) {
+                $0.accessibilityIgnoresInvertColors = true
+            }
+            $0.clipsToBounds = true
+        }
         self.thumbImageContainer.addSubview(self.thumbImage)
+        self.thumbImage.addSubview(self.thumbText)
+        
         self.thumbImage.edgeAnchors == self.thumbImageContainer.edgeAnchors
+        self.thumbText.horizontalAnchors == self.thumbImage.horizontalAnchors - 2
+        self.thumbText.heightAnchor == 20
+        self.thumbText.bottomAnchor == self.thumbImage.bottomAnchor + 2
         
         self.bannerImage = UIImageView().then {
             $0.accessibilityIdentifier = "Banner Image"
@@ -456,7 +486,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             contentView.addSubviews(bannerImage, thumbImageContainer, title, infoContainer, tagbody)
         }
         
-        if self is AutoplayBannerLinkCellView || self is FullLinkCellView {
+        if self is AutoplayBannerLinkCellView || self is FullLinkCellView || self is GalleryLinkCellView {
             self.videoView = VideoView().then {
                 $0.accessibilityIdentifier = "Video view"
                 if !SettingValues.flatMode {
@@ -469,6 +499,8 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             
             self.topVideoView = UIView()
             self.progressDot = UIView()
+            self.spinner = UIActivityIndicatorView(style: .white)
+            
             progressDot.alpha = 0.7
             progressDot.backgroundColor = UIColor.black.withAlphaComponent(0.5)
             sound = UIButton(type: .custom)
@@ -491,7 +523,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                 $0.backgroundColor = UIColor.black.withAlphaComponent(0.5)
             }
             
-            topVideoView.addSubviews(progressDot, sound, timeView)
+            topVideoView.addSubviews(progressDot, spinner, sound, timeView)
             
             contentView.addSubviews(videoView, topVideoView)
             contentView.bringSubviewToFront(videoView)
@@ -507,7 +539,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
         
         contentView.layer.masksToBounds = true
         
-        if SettingValues.actionBarMode.isFull() || full {
+        if SettingValues.actionBarMode.isFull() || full || self is GalleryLinkCellView {
             self.box = UIStackView().then {
                 $0.accessibilityIdentifier = "Count Info Stack Horizontal"
                 $0.axis = .horizontal
@@ -606,6 +638,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                 }
                 self.addGestureRecognizer(comment)
             }
+            
             if #available(iOS 13, *) {
                 let interaction = UIContextMenuInteraction(delegate: self)
                 self.contentView.addInteraction(interaction)
@@ -620,10 +653,6 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                     textView.parentLongPress = longPress!
                 }
                 
-                let long = UILongPressGestureRecognizer(target: self, action: #selector(LinkCellView.linkMenu(sender:)))
-                long.delegate = self
-                bannerImage.addGestureRecognizer(long)
-                
                 let long2 = UILongPressGestureRecognizer(target: self, action: #selector(LinkCellView.linkMenu(sender:)))
                 long2.delegate = self
                 thumbImageContainer.addGestureRecognizer(long2)
@@ -636,7 +665,13 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                 long4.delegate = self
                 infoContainer.addGestureRecognizer(long4)
 
-                longPress!.require(toFail: long)
+                if #available(iOS 13, *) {} else {
+                    let long = UILongPressGestureRecognizer(target: self, action: #selector(LinkCellView.linkMenu(sender:)))
+                    long.delegate = self
+                    bannerImage.addGestureRecognizer(long)
+                    longPress!.require(toFail: long)
+                }
+
                 longPress!.require(toFail: long2)
                 longPress!.require(toFail: long3)
                 longPress!.require(toFail: long4)
@@ -647,7 +682,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
         
         sideButtons.isHidden = !SettingValues.actionBarMode.isSide() || full
         buttons.isHidden = !SettingValues.actionBarMode.isFull() && !full
-        buttons.isUserInteractionEnabled = !SettingValues.actionBarMode.isFull() || full
+        buttons.isUserInteractionEnabled = !SettingValues.actionBarMode.isFull() || full || self is GalleryLinkCellView
     }
     
     var progressBar: ProgressBarView!
@@ -665,15 +700,21 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             alertController.addAction(title: "Share\(ContentType.isImage(uri: url) && !bannerImage.isHidden ? " image" : "") URL", icon: UIImage(sfString: SFSymbol.squareAndArrowUp, overrideString: "share")!.menuIcon()) {
                 let shareItems: Array = [url]
                 let activityViewController: UIActivityViewController = UIActivityViewController(activityItems: shareItems, applicationActivities: nil)
-                activityViewController.popoverPresentationController?.sourceView = self.contentView
+                if let presenter = activityViewController.popoverPresentationController {
+                    presenter.sourceView = self.bannerImage
+                    presenter.sourceRect = self.bannerImage.bounds
+                }
                 self.parentViewController?.present(activityViewController, animated: true, completion: nil)
             }
             
             if ContentType.isImage(uri: url) && !bannerImage.isHidden {
-                let imageToShare = [bannerImage.image!]
-                let activityViewController = UIActivityViewController(activityItems: imageToShare, applicationActivities: nil)
-                activityViewController.popoverPresentationController?.sourceView = self.contentView
                 alertController.addAction(title: "Share image", icon: UIImage(sfString: SFSymbol.squareAndArrowUp, overrideString: "image")!.menuIcon(), action: {
+                    let imageToShare = [self.bannerImage.image!]
+                    let activityViewController = UIActivityViewController(activityItems: imageToShare, applicationActivities: nil)
+                    if let presenter = activityViewController.popoverPresentationController {
+                        presenter.sourceView = self.bannerImage
+                        presenter.sourceRect = self.bannerImage.bounds
+                    }
                     self.parentViewController?.present(activityViewController, animated: true, completion: nil)
                 })
             }
@@ -847,11 +888,15 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
         if !buffering {
             progressDot.layer.removeAllAnimations()
             progressDot.layer.addSublayer(circleShape)
+            spinner.isHidden = true
+            spinner.stopAnimating()
         }
         
         if timeView.isHidden {
             timeView.isHidden = false
             progressDot.isHidden = false
+            spinner.isHidden = false
+            spinner.startAnimating()
         }
         timeView.text = "\(total)  "
         
@@ -899,6 +944,12 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             progressDot.layer.cornerRadius = 10
             progressDot.clipsToBounds = true
             
+            spinner.widthAnchor == 20
+            spinner.heightAnchor == 20
+            spinner.leftAnchor == topVideoView.leftAnchor + 8
+            spinner.bottomAnchor == topVideoView.bottomAnchor - 8
+            spinner.clipsToBounds = true
+
             timeView.leftAnchor == progressDot.rightAnchor + 8
             timeView.bottomAnchor == topVideoView.bottomAnchor - 8
             timeView.heightAnchor == 20
@@ -928,7 +979,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             var rightmargin = 0
             var radius = 0
             
-            if (SettingValues.postViewMode == .CARD || SettingValues.postViewMode == .CENTER) && !full {
+            if (SettingValues.postViewMode == .CARD || SettingValues.postViewMode == .CENTER) && !full && !(self is GalleryLinkCellView) {
                 topmargin = 5
                 bottommargin = 5
                 leftmargin = 5
@@ -943,7 +994,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                 self.contentView.clipsToBounds = false
             }
             
-            if SettingValues.actionBarMode.isFull() || full {
+            if SettingValues.actionBarMode.isFull() || full || self is GalleryLinkCellView {
                 
                 if SettingValues.actionBarMode == .FULL_LEFT {
                     box.rightAnchor == contentView.rightAnchor - ctwelve
@@ -1045,15 +1096,14 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
     }
     
     func endVideos() {
-        if !(self is AutoplayBannerLinkCellView || self is FullLinkCellView) {
+        if !(self is AutoplayBannerLinkCellView || self is FullLinkCellView || self is GalleryLinkCellView) {
             return
         }
         videoPreloaded = false
         isLoadingVideo = false
         videoCompletion = nil
-        if videoView != nil && (AnyModalViewController.linkID.isEmpty && (!full || videoLoaded) || full) {
+        if videoView != nil && (AnyModalViewController.linkID.isEmpty && (!full || videoLoaded) || full) && ContentType.displayVideo(t: type) && type != .VIDEO {
             let wasPlayingAudio = (self.videoView.player?.currentItem?.tracks.count ?? 1) > 1 && !self.videoView.player!.isMuted
-            
             videoView?.player?.pause()
             
             self.videoView!.player?.replaceCurrentItem(with: nil)
@@ -1062,7 +1112,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             self.updater?.invalidate()
             self.updater = nil
             self.bannerImage.isHidden = false
-            self.playView.isHidden = SettingValues.autoPlayMode != .TAP || full
+            self.playView.isHidden = self is GalleryLinkCellView || SettingValues.autoPlayMode != .TAP || full
             videoView?.isHidden = false
             topVideoView?.isHidden = false
             sound.isHidden = true
@@ -1157,7 +1207,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             return
         }
 
-        let attText = CachedTitle.getTitle(submission: link, full: full, force, false)
+        let attText = CachedTitle.getTitle(submission: link, full: full, force, false, gallery: false)
         /* Bad test code...
          if !link.awards.isEmpty {
             let string = NSMutableAttributedString.init(attributedString: attText)
@@ -1303,8 +1353,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                 presenter.sourceView = self.contentView
                 presenter.sourceRect = self.contentView.bounds
             }
-            let currentViewController: UIViewController = UIApplication.shared.keyWindow!.rootViewController!
-            currentViewController.present(activityViewController, animated: true, completion: nil)
+            self.parentViewController?.present(activityViewController, animated: true, completion: nil)
         default:
             break
         }
@@ -1344,8 +1393,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                 presenter.sourceView = self.contentView
                 presenter.sourceRect = self.contentView.bounds
             }
-            let currentViewController: UIViewController = UIApplication.shared.keyWindow!.rootViewController!
-            currentViewController.present(activityViewController, animated: true, completion: nil)
+            self.parentViewController?.present(activityViewController, animated: true, completion: nil)
         default:
             break
         }
@@ -1362,7 +1410,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
     var shouldLoadVideo = false
     
     private func setLink(submission: RSubmission, parent: UIViewController & MediaVCDelegate, nav: UIViewController?, baseSub: String, test: Bool = false, embedded: Bool = false, parentWidth: CGFloat = 0, np: Bool) {
-        if self is AutoplayBannerLinkCellView {
+        if self is AutoplayBannerLinkCellView || self is GalleryLinkCellView {
             self.endVideos()
             do {
                 try AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
@@ -1417,7 +1465,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
         
         submissionHeight = CGFloat(submission.height)
         
-        type = test && SettingValues.linkAlwaysThumbnail ? ContentType.CType.LINK : ContentType.getContentType(baseUrl: submission.url)
+        type = test && SettingValues.linkAlwaysThumbnail && !(self is GalleryLinkCellView) ? ContentType.CType.LINK : ContentType.getContentType(baseUrl: submission.url)
         
         if embedded && !submission.isSelf {
             type = .LINK
@@ -1435,7 +1483,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
         let fullImage = ContentType.fullImage(t: type)
         let shouldAutoplay = SettingValues.shouldAutoPlay()
         
-        let overrideFull = ContentType.displayVideo(t: type) && type != .VIDEO && (self is AutoplayBannerLinkCellView || self is FullLinkCellView) && shouldAutoplay
+        let overrideFull = ContentType.displayVideo(t: type) && type != .VIDEO && (self is AutoplayBannerLinkCellView || self is FullLinkCellView || self is GalleryLinkCellView) && shouldAutoplay
 
         if !fullImage && submissionHeight < 75 {
             big = false
@@ -1511,10 +1559,18 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             submissionHeight = getHeightFromAspectRatio(imageHeight: submissionHeight == 200 ? CGFloat(200) : CGFloat(submission.height), imageWidth: CGFloat(submission.width), viewWidth: (parentWidth == 0 ? (contentView.frame.size.width == 0 ? CGFloat(submission.width) : contentView.frame.size.width) : parentWidth) - (bannerPadding * 2))
         }
         
+        if self is GalleryLinkCellView {
+            big = true
+            thumb = false
+        }
+        
         if !big && !thumb && submission.type != .SELF && submission.type != .NONE { //If a submission has a link but no images, still show the web thumbnail
             thumb = true
+            thumbText.isHidden = true
             if submission.nsfw {
-                thumbImage.image = LinkCellImageCache.nsfw
+                thumbImage.image = SettingValues.thumbTag ? LinkCellImageCache.nsfwUp : LinkCellImageCache.nsfw
+                thumbText.isHidden = false
+                thumbText.text = type.rawValue.uppercased()
             } else if submission.spoiler {
                 thumbImage.image = LinkCellImageCache.spoiler
             } else if type == .REDDIT {
@@ -1523,8 +1579,11 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                 thumbImage.image = LinkCellImageCache.web
             }
         } else if thumb && !big {
+            thumbText.isHidden = true
             if submission.nsfw && (!SettingValues.nsfwPreviews || SettingValues.hideNSFWCollection && Subscriptions.isCollection(baseSub)) {
-                thumbImage.image = LinkCellImageCache.nsfw
+                thumbImage.image = SettingValues.thumbTag ? LinkCellImageCache.nsfwUp : LinkCellImageCache.nsfw
+                thumbText.isHidden = false
+                thumbText.text = type.rawValue.uppercased()
             } else if submission.thumbnailUrl == "web" || submission.thumbnailUrl.isEmpty || submission.spoiler {
                 if submission.spoiler {
                     thumbImage.image = LinkCellImageCache.spoiler
@@ -1534,11 +1593,23 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                     thumbImage.image = LinkCellImageCache.web
                 }
             } else {
-                thumbImage.loadImageWithPulsingAnimation(atUrl: URL(string: submission.thumbnailUrl), withPlaceHolderImage: LinkCellImageCache.web)
+                thumbText.isHidden = false
+                thumbText.text = type.rawValue.uppercased()
+                print(submission.smallPreview)
+                thumbImage.loadImageWithPulsingAnimation(atUrl: URL(string: submission.smallPreview == "" ? submission.thumbnailUrl : submission.smallPreview), withPlaceHolderImage: LinkCellImageCache.web)
             }
         } else {
             thumbImage.image = nil
+            thumbText.isHidden = true
             self.thumbImage.frame.size.width = 0
+        }
+        
+        if !SettingValues.thumbTag || full {
+            thumbText.isHidden = true
+        }
+        
+        if full {
+            self.thumbText.isHidden = true
         }
         
         if big {
@@ -1546,7 +1617,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             self.endVideos()
             bannerImage.alpha = 1
             var videoOverride = false
-            if ContentType.displayVideo(t: type) && type != .VIDEO && (self is AutoplayBannerLinkCellView || (self is FullLinkCellView && shouldAutoplay)) && (SettingValues.autoPlayMode == .ALWAYS || (SettingValues.autoPlayMode == .WIFI && shouldAutoplay)) {
+            if ContentType.displayVideo(t: type) && type != .VIDEO && (self is AutoplayBannerLinkCellView || (self is FullLinkCellView && shouldAutoplay) || self is GalleryLinkCellView) && (SettingValues.autoPlayMode == .ALWAYS || (SettingValues.autoPlayMode == .WIFI && shouldAutoplay)) {
                 videoView?.isHidden = false
                 topVideoView?.isHidden = false
                 sound.isHidden = true
@@ -1559,17 +1630,19 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                     doLoadVideo()
                 } else {
                     self.videoCompletion = nil
-                    self.preloadVideo()
+                    if let url = (!link!.videoPreview.isEmpty() && !ContentType.isGfycat(uri: link!.url!)) ? URL.init(string: link!.videoPreview) : link!.url {
+                            self.preloadVideo(url)
+                    }
                 }
                 videoOverride = true
-            } else if self is FullLinkCellView {
+            } else if self is FullLinkCellView || self is GalleryLinkCellView {
                 self.videoView.isHidden = true
                 self.topVideoView.isHidden = true
                 self.timeView.isHidden = true
                 self.progressDot.isHidden = true
             }
             
-            if (self is AutoplayBannerLinkCellView || self is FullLinkCellView) && (ContentType.displayVideo(t: type) && type != .VIDEO) && (SettingValues.autoPlayMode == .TAP || (SettingValues.autoPlayMode == .WIFI && !shouldAutoplay)) {
+            if (self is AutoplayBannerLinkCellView || self is FullLinkCellView || self is GalleryLinkCellView) && (ContentType.displayVideo(t: type) && type != .VIDEO) && (SettingValues.autoPlayMode == .TAP || (SettingValues.autoPlayMode == .WIFI && !shouldAutoplay)) {
                 videoView?.isHidden = false
                 topVideoView?.isHidden = false
                 sound.isHidden = true
@@ -1578,10 +1651,11 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                 self.playView.isHidden = false
                 self.progressDot.isHidden = true
                 self.timeView.isHidden = true
+                self.spinner.isHidden = true
                 videoOverride = true
             }
             
-            let imageSize = CGSize.init(width: submission.width, height: ((full && !SettingValues.commentFullScreen) || (!full && SettingValues.postImageMode == .CROPPED_IMAGE)) && !((self is AutoplayBannerLinkCellView || self is FullLinkCellView) && (ContentType.displayVideo(t: type) && type != .VIDEO) && (SettingValues.autoPlayMode == .TAP || (SettingValues.autoPlayMode == .WIFI && !shouldAutoplay))) ? 200 : submission.height)
+            let imageSize = CGSize.init(width: submission.width == 0 ? 400 : submission.width, height: ((full && !SettingValues.commentFullScreen) || (!full && SettingValues.postImageMode == .CROPPED_IMAGE)) && !((self is AutoplayBannerLinkCellView || self is FullLinkCellView || self is GalleryLinkCellView) && (ContentType.displayVideo(t: type) && type != .VIDEO) && (SettingValues.autoPlayMode == .TAP || (SettingValues.autoPlayMode == .WIFI && !shouldAutoplay))) ? 200 : (submission.height == 0 ? 275 : submission.height))
             
             aspect = imageSize.width / imageSize.height
             if aspect == 0 || aspect > 10000 || aspect.isNaN {
@@ -1599,10 +1673,13 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
 
             // Pulse the background color of the banner image until it loads
             lq = shouldShowLq
-            let bannerImageUrl = URL(string: shouldShowLq ? submission.lqUrl : submission.bannerUrl)
-            loadedImage = bannerImageUrl
-            bannerImage.loadImageWithPulsingAnimation(atUrl: bannerImageUrl, withPlaceHolderImage: nil)
-            
+            if submission.bannerUrl == "" || submission.width == 0 {
+                bannerImage.image = LinkCellImageCache.webBig
+            } else {
+                let bannerImageUrl = URL(string: shouldShowLq ? submission.lqUrl : submission.bannerUrl)
+                loadedImage = bannerImageUrl
+                bannerImage.loadImageWithPulsingAnimation(atUrl: bannerImageUrl, withPlaceHolderImage: nil)
+            }
             NSLayoutConstraint.deactivate(self.bannerHeightConstraint)
             self.bannerHeightConstraint = batch {
                 self.bannerImage.heightAnchor == self.submissionHeight ~ .low
@@ -1875,21 +1952,30 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
     var videoPreloaded = false
     var isLoadingVideo = false
     var videoCompletion: (() -> Void)?
+    var lastVideoTried = ""
     
-    func preloadVideo() {
-        let baseUrl: URL
+    func preloadVideo(_ baseUrl: URL) {
         self.isLoadingVideo = true
+        self.lastVideoTried = baseUrl.absoluteString
+        
         self.videoPreloaded = false
-        if !link!.videoPreview.isEmpty() && !ContentType.isGfycat(uri: link!.url!) {
-            baseUrl = URL.init(string: link!.videoPreview)!
-        } else {
-            baseUrl = link!.url!
-        }
         let url = VideoMediaViewController.format(sS: baseUrl.absoluteString, true)
         let videoType = VideoMediaViewController.VideoType.fromPath(url)
         self.videoTask = videoType.getSourceObject().load(url: url, completion: { [weak self] (urlString) in
             guard let strongSelf = self else { return }
-            strongSelf.videoURL = URL(string: urlString)!
+            let videoURL = URL(string: urlString)
+            if videoURL == nil {
+                DispatchQueue.main.async {[weak self] in
+                    if let strongSelf = self, let url = URL.init(string: strongSelf.link!.videoPreview ?? "") {
+                        if url.absoluteString != strongSelf.lastVideoTried {
+                            strongSelf.preloadVideo(url)
+                        }
+                    }
+                }
+                return
+            }
+            strongSelf.videoURL = videoURL!
+            
             strongSelf.videoPreloaded = true
             strongSelf.isLoadingVideo = false
             DispatchQueue.main.async {
@@ -1899,30 +1985,40 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
     }
 
     func doLoadVideo() {
-        if videoPreloaded {
-            playVideo()
-        } else if isLoadingVideo {
-            videoCompletion = {
-                self.playVideo()
+        if self is AutoplayBannerLinkCellView || self is GalleryLinkCellView || self is FullLinkCellView {
+            if videoPreloaded {
+                playVideo()
+            } else if isLoadingVideo {
+                videoCompletion = {
+                    self.playVideo()
+                }
+            } else {
+                videoCompletion = {
+                    self.playVideo()
+                }
+                if let url = (!link!.videoPreview.isEmpty() && !ContentType.isGfycat(uri: link!.url!)) ? URL.init(string: link!.videoPreview) : link!.url {
+                        self.preloadVideo(url)
+                }
             }
-        } else {
-            videoCompletion = {
-                self.playVideo()
-            }
-            preloadVideo()
         }
     }
     
     func playVideo() {
         if !shouldLoadVideo || !AnyModalViewController.linkID.isEmpty() {
-            if playView != nil {
-                playView.isHidden = false
+            if self.playView != nil {
+                self.playView.isHidden = false
+                self.spinner.isHidden = true
+                self.playView.alpha = 0
+                UIView.animate(withDuration: 0.1) { [weak self] in
+                    guard let strongSelf = self else { return }
+                    strongSelf.playView.alpha = 1
+                }
             }
             return
         }
         
         let strongSelf = self
-
+        
         strongSelf.videoView?.player = AVPlayer(playerItem: AVPlayerItem(url: strongSelf.videoURL!))
         strongSelf.videoView?.player?.actionAtItemEnd = AVPlayer.ActionAtItemEnd.none
 //                Is currently causing issues with not resuming after buffering
@@ -1930,7 +2026,11 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
 //                    strongSelf.videoView?.player?.automaticallyWaitsToMinimizeStalling = false
 //                }
         strongSelf.setOnce = false
-        strongSelf.videoView?.player?.play()
+        if #available(iOS 10.0, *) {
+            strongSelf.videoView?.player?.playImmediately(atRate: 1.0)
+        } else {
+            strongSelf.videoView?.player?.play()
+        }
         strongSelf.videoID = strongSelf.link?.getId() ?? ""
         if SettingValues.muteInlineVideos {
             strongSelf.videoView?.player?.isMuted = true
@@ -2196,7 +2296,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                     DispatchQueue.main.async {
                         BannerUtil.makeBanner(text: "Flair set successfully!", seconds: 3, context: self.parentViewController)
                         self.link!.flair = (text != nil && !text!.isEmpty) ? text! : flair.text
-                        _ = CachedTitle.getTitle(submission: self.link!, full: true, true, false)
+                        _ = CachedTitle.getTitle(submission: self.link!, full: true, true, false, gallery: false)
                         self.setLink(submission: self.link!, parent: self.parentViewController!, nav: self.navViewController!, baseSub: (self.link?.subreddit)!, np: false)
                         if self.textView != nil {
                             self.showBody(width: self.contentView.frame.size.width - 24)
@@ -2363,12 +2463,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
                         presenter.sourceView = outer
                         presenter.sourceRect = outer.bounds
                     }
-                    let window = UIApplication.shared.keyWindow!
-                    if let modalVC = window.rootViewController?.presentedViewController {
-                        modalVC.present(activityViewController, animated: true, completion: nil)
-                    } else {
-                        window.rootViewController!.present(activityViewController, animated: true, completion: nil)
-                    }
+                    self.parentViewController?.present(activityViewController, animated: true, completion: nil)
                 }
             }
             
@@ -2433,7 +2528,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
         var leftmargin = 0
         var rightmargin = 0
         
-        if (SettingValues.postViewMode == .CARD || SettingValues.postViewMode == .CENTER) && !full {
+        if (SettingValues.postViewMode == .CARD || SettingValues.postViewMode == .CENTER) && !full && !(self is GalleryLinkCellView){
             topmargin = 5
             bottommargin = 5
             leftmargin = 5
@@ -2483,7 +2578,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             var paddingLeft = CGFloat(0)
             var paddingRight = CGFloat(0)
             var innerPadding = CGFloat(0)
-            if (SettingValues.postViewMode == .CARD || SettingValues.postViewMode == .CENTER) && !full {
+            if (SettingValues.postViewMode == .CARD || SettingValues.postViewMode == .CENTER) && !full && !(self is GalleryLinkCellView) {
                 paddingTop = 5
                 paddingBottom = 5
                 paddingLeft = 5
@@ -2573,7 +2668,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
         var paddingLeft = CGFloat(0)
         var paddingRight = CGFloat(0)
         var innerPadding = CGFloat(0)
-        if (SettingValues.postViewMode == .CARD || SettingValues.postViewMode == .CENTER) && !full {
+        if (SettingValues.postViewMode == .CARD || SettingValues.postViewMode == .CENTER) && !full && !(self is GalleryLinkCellView) {
             paddingLeft = 5
             paddingRight = 5
         }
@@ -2675,12 +2770,14 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
     
     public var parentViewController: (UIViewController & MediaVCDelegate)?
     weak var previewedVC: UIViewController?
+    var previewedImage = false
+    var previewedVideo = false
     var previewedURL: URL?
     public var navViewController: UIViewController?
     
     @objc func openLink(sender: UITapGestureRecognizer? = nil) {
         if let link = link {
-            (parentViewController)?.setLink(lnk: link, shownURL: loadedImage, lq: lq, saveHistory: true, heroView: big ? bannerImage : thumbImage, heroVC: parentViewController, upvoteCallbackIn: {[weak self] in
+            (parentViewController)?.setLink(lnk: link, shownURL: loadedImage, lq: lq, saveHistory: true, heroView: big ? bannerImage : thumbImage, finalSize: CGSize(width: link.width, height: link.height), heroVC: parentViewController, upvoteCallbackIn: {[weak self] in
                 if let strongSelf = self {
                     strongSelf.upvote()
                 }
@@ -2698,6 +2795,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             shouldLoadVideo = true
             doLoadVideo()
             playView.isHidden = true
+            self.spinner.isHidden = false
             self.progressDot.isHidden = false
         } else if self.videoView.player != nil && self.videoView.player?.currentItem != nil && self.videoView.player!.currentItem!.presentationSize.width != 0 {
             let upvoted = ActionStates.getVoteDirection(s: link!) == VoteDirection.up
@@ -2834,7 +2932,7 @@ public extension UIImageView {
         startPulsingAnimation()
 
         DispatchQueue.global(qos: .userInteractive).async {
-            self.sd_setImage(with: url, placeholderImage: placeholderImage, options: [.allowInvalidSSLCertificates, .scaleDownLargeImages]) { (_, _, cacheType, _) in
+            self.sd_setImage(with: url, placeholderImage: placeholderImage, options: [.decodeFirstFrameOnly, .allowInvalidSSLCertificates, .scaleDownLargeImages]) { (_, _, cacheType, _) in
                 self.layer.removeAllAnimations() // Stop the pulsing animation
                 self.backgroundColor = oldBackgroundColor
 
@@ -2933,19 +3031,34 @@ extension LinkCellView: UIContextMenuInteractionDelegate {
     func contextMenuInteraction(_ interaction: UIContextMenuInteraction, willPerformPreviewActionForMenuWith configuration: UIContextMenuConfiguration, animator: UIContextMenuInteractionCommitAnimating) {
         animator.addCompletion {
             if let vc = self.previewedVC {
-                if vc is WebsiteViewController || vc is SFHideSafariViewController {
-                    self.previewedVC = nil
-                    if let url = self.previewedURL {
-                        self.parentViewController?.doShow(url: url, heroView: nil, heroVC: nil)
-                    }
+                if self.previewedVideo && vc is AnyModalViewController {
+                    //TODO check for memory leaks here
+                    let postContentTransitioningDelegate = PostContentPresentationManager()
+                    postContentTransitioningDelegate.sourceImageView = self.videoView
+                    vc.transitioningDelegate = postContentTransitioningDelegate
+                    vc.modalPresentationStyle = .custom
+                    (vc as! AnyModalViewController).forceStartUnmuted = !self.videoView.player!.isMuted
+                    
+                    self.parentViewController?.present(vc, animated: true, completion: nil)
                 } else {
-                    if self.parentViewController != nil && (vc is AlbumViewController || vc is ModalMediaViewController) {
-                        vc.modalPresentationStyle = .overFullScreen
-                        self.parentViewController?.present(vc, animated: true)
+                    if vc is WebsiteViewController || vc is SFHideSafariViewController {
+                        self.previewedVC = nil
+                        if let url = self.previewedURL {
+                            self.parentViewController?.doShow(url: url, heroView: nil, finalSize: nil, heroVC: nil)
+                        }
                     } else {
-                        VCPresenter.showVC(viewController: vc, popupIfPossible: true, parentNavigationController: nil, parentViewController: self.parentViewController)
+                        if self.parentViewController != nil && (vc is AlbumViewController || vc is ModalMediaViewController) {
+                            vc.modalPresentationStyle = .overFullScreen
+                            self.parentViewController?.present(vc, animated: true)
+                        } else {
+                            VCPresenter.showVC(viewController: vc, popupIfPossible: true, parentNavigationController: nil, parentViewController: self.parentViewController)
+                        }
                     }
                 }
+            } else if self.previewedImage {
+                self.openLink()
+            } else if self.previewedVideo {
+                self.openLinkVideo()
             }
         }
     }
@@ -2954,7 +3067,7 @@ extension LinkCellView: UIContextMenuInteractionDelegate {
         let parameters = UIPreviewParameters()
         parameters.backgroundColor = .clear
         
-        if full && self.textView != nil && self.textView.frame.contains(interaction.location(in: self.contentView)) {
+        if full && self.textView != nil && !self.textView.isHidden && self.textView.frame.contains(interaction.location(in: self.contentView)) {
             let location = interaction.location(in: self.textView)
             
             if self.textView.firstTextView.frame.contains(location) {
@@ -2968,6 +3081,10 @@ extension LinkCellView: UIContextMenuInteractionDelegate {
                 }
             }
             return UITargetedPreview(view: self.textView, parameters: parameters)
+        } else if videoView != nil && !videoView.isHidden && videoView.frame.contains(interaction.location(in: self.contentView)) {
+            return UITargetedPreview(view: self.videoView, parameters: parameters)
+        } else if bannerImage != nil && !bannerImage.isHidden && bannerImage.frame.contains(interaction.location(in: self.contentView)) {
+            return UITargetedPreview(view: self.bannerImage, parameters: parameters)
         } else if thumbImageContainer != nil && thumbImageContainer.frame.contains(interaction.location(in: self.contentView)) {
             return UITargetedPreview(view: self.thumbImageContainer, parameters: parameters)
         } else {
@@ -3011,7 +3128,7 @@ extension LinkCellView: UIContextMenuInteractionDelegate {
     
     func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configurationForMenuAtLocation location: CGPoint) -> UIContextMenuConfiguration? {
         let saveArea = self.contentView.convert(location, to: self.buttons)
-        if full && self.textView != nil && self.textView.frame.contains(location) {
+        if full && self.textView != nil && !self.textView.isHidden && self.textView.frame.contains(location) {
             let innerPoint = self.contentView.convert(location, to: self.textView)
             if self.textView.firstTextView.frame.contains(innerPoint) {
                 return getConfigurationForTextView(self.textView.firstTextView, innerPoint)
@@ -3024,6 +3141,12 @@ extension LinkCellView: UIContextMenuInteractionDelegate {
                     }
                 }
             }
+        } else if let url = self.link?.url, videoView != nil && !videoView.isHidden && videoView.frame.contains(location) {
+            self.previewedVideo = true
+            return getConfigurationForVideo(url: url)
+        } else if let url = self.link?.url, bannerImage != nil && bannerImage.isHidden == false && (videoView == nil || videoView.isHidden) && bannerImage.frame.contains(location) {
+            self.previewedImage = true
+            return getConfigurationForImage(url: url)
         } else if let url = self.link?.url, thumbImageContainer != nil && thumbImageContainer.frame.contains(location) {
             return getConfigurationFor(url: url)
         } else if save.frame.contains(saveArea) {
@@ -3054,6 +3177,8 @@ extension LinkCellView: UIContextMenuInteractionDelegate {
     
     func contextMenuInteractionDidEnd(_ interaction: UIContextMenuInteraction) {
         self.previewedVC = nil
+        self.previewedImage = false
+        self.previewedVideo = false
     }
     
     func getConfigurationFor(url: URL) -> UIContextMenuConfiguration {
@@ -3075,6 +3200,10 @@ extension LinkCellView: UIContextMenuInteractionDelegate {
                 let shareItems: Array = [url]
                 let activityViewController: UIActivityViewController = UIActivityViewController(activityItems: shareItems, applicationActivities: nil)
                 activityViewController.popoverPresentationController?.sourceView = self.contentView
+                if let presenter = activityViewController.popoverPresentationController {
+                    presenter.sourceView = self.contentView
+                    presenter.sourceRect = self.contentView.bounds
+                }
                 self.parentViewController?.present(activityViewController, animated: true, completion: nil)
             })
             children.append(UIAction(title: "Copy URL", image: UIImage(sfString: SFSymbol.docOnDocFill, overrideString: "copy")!.menuIcon()) { _ in
@@ -3096,7 +3225,137 @@ extension LinkCellView: UIContextMenuInteractionDelegate {
             return UIMenu(title: "Link Options", image: nil, identifier: nil, children: children)
         })
     }
-    
+
+    func getConfigurationForImage(url: URL) -> UIContextMenuConfiguration {
+        self.previewedURL = url
+        return UIContextMenuConfiguration(identifier: nil, previewProvider: { () -> UIViewController? in
+            let vc = UIViewController()
+            let image = UIImageView()
+            vc.view.addSubview(image)
+            image.image = self.bannerImage.image
+            let ratio = image.image!.size.width / image.image!.size.height
+            if vc.view.frame.width > vc.view.frame.height {
+                let newHeight = vc.view.frame.width / ratio
+                image.frame.size = CGSize(width: vc.view.frame.width, height: newHeight)
+            } else {
+                let newWidth = vc.view.frame.height * ratio
+                image.frame.size = CGSize(width: newWidth, height: vc.view.frame.height)
+            }
+            vc.preferredContentSize = image.frame.size
+            image.edgeAnchors == vc.view.edgeAnchors
+            return vc
+        }, actionProvider: { (_) -> UIMenu? in
+            var children = [UIMenuElement]()
+            
+            if ContentType.isImage(uri: url) && !self.bannerImage.isHidden && self.bannerImage.image != nil {
+                let imageToShare = [self.bannerImage.image!]
+                let activityViewController = UIActivityViewController(activityItems: imageToShare, applicationActivities: nil)
+                children.append(UIAction(title: "Save Image", image: UIImage(sfString: SFSymbol.squareAndArrowDown, overrideString: "save")!.menuIcon()) { _ in
+                    CustomAlbum.shared.save(image: imageToShare[0], parent: self.parentViewController)
+                })
+                children.append(UIAction(title: "Share Image", image: UIImage(sfString: SFSymbol.cameraFill, overrideString: "share")!.menuIcon()) { _ in
+                    if let presenter = activityViewController.popoverPresentationController {
+                        presenter.sourceView = self.bannerImage
+                        presenter.sourceRect = self.bannerImage.bounds
+                    }
+                    self.parentViewController?.present(activityViewController, animated: true, completion: nil)
+                })
+            }
+
+            children.append(UIAction(title: "Share Image URL", image: UIImage(sfString: SFSymbol.squareAndArrowUp, overrideString: "share")!.menuIcon()) { _ in
+                let shareItems: Array = [url]
+                let activityViewController: UIActivityViewController = UIActivityViewController(activityItems: shareItems, applicationActivities: nil)
+                if let presenter = activityViewController.popoverPresentationController {
+                    presenter.sourceView = self.bannerImage
+                    presenter.sourceRect = self.bannerImage.bounds
+                }
+                self.parentViewController?.present(activityViewController, animated: true, completion: nil)
+            })
+            children.append(UIAction(title: "Copy URL", image: UIImage(sfString: SFSymbol.docOnDocFill, overrideString: "copy")!.menuIcon()) { _ in
+                UIPasteboard.general.setValue(url, forPasteboardType: "public.url")
+                BannerUtil.makeBanner(text: "URL Copied", seconds: 5, context: self.parentViewController)
+            })
+
+            children.append(UIAction(title: "Open in default app", image: UIImage(sfString: SFSymbol.safariFill, overrideString: "nav")!.menuIcon()) { _ in
+                UIApplication.shared.open(url, options: convertToUIApplicationOpenExternalURLOptionsKeyDictionary([:]), completionHandler: nil)
+            })
+            
+            return UIMenu(title: "Image Options", image: nil, identifier: nil, children: children)
+        })
+    }
+
+    func getConfigurationForVideo(url: URL) -> UIContextMenuConfiguration {
+        self.previewedURL = url
+        return UIContextMenuConfiguration(identifier: nil, previewProvider: { () -> UIViewController? in
+            let upvoted = ActionStates.getVoteDirection(s: self.link!) == VoteDirection.up
+            let controller = AnyModalViewController(cellView: self, self.full ? nil : {[weak self] in
+                if let strongSelf = self {
+                    strongSelf.doOpenComment()
+                }
+            }, upvoteCallback: {[weak self] in
+                if let strongSelf = self {
+                    strongSelf.upvote()
+                }
+            }, isUpvoted: upvoted, failure: nil)
+            self.previewedVC = controller
+
+            return controller
+        }, actionProvider: { (_) -> UIMenu? in
+            var children = [UIMenuElement]()
+            
+            if let baseUrl = self.videoURL ?? self.link?.url, let parent = self.parentViewController { //todo enable this
+                var finalUrl = baseUrl
+                if VideoMediaViewController.VideoType.fromPath(baseUrl.absoluteString) == .REDDIT {
+                    finalUrl = URL(string: self.link!.videoMP4) ?? baseUrl
+                }
+                children.append(UIAction(title: "Save Video", image: UIImage(sfString: SFSymbol.squareAndArrowDown, overrideString: "save")!.menuIcon()) { _ in
+                    VideoMediaDownloader(urlToLoad: finalUrl).getVideoWithCompletion(completion: { (fileURL) in
+                        if fileURL != nil {
+                            CustomAlbum.shared.saveMovieToLibrary(movieURL: fileURL!, parent: parent)
+                        } else {
+                            BannerUtil.makeBanner(text: "Error downloading video", color: GMColor.red500Color(), seconds: 5, context: parent, top: false, callback: nil)
+                        }
+                    }, parent: parent)
+                })
+                children.append(UIAction(title: "Share Video", image: UIImage(sfString: SFSymbol.cameraFill, overrideString: "share")!.menuIcon()) { _ in
+                    VideoMediaDownloader.init(urlToLoad: finalUrl).getVideoWithCompletion(completion: { (fileURL) in
+                        DispatchQueue.main.async {
+                            if fileURL != nil {
+                                let shareItems: [Any] = [fileURL!]
+                                let activityViewController: UIActivityViewController = UIActivityViewController(activityItems: shareItems, applicationActivities: nil)
+                                if let presenter = activityViewController.popoverPresentationController {
+                                    presenter.sourceView = self.videoView!
+                                    presenter.sourceRect = self.videoView!.bounds
+                                }
+                                self.parentViewController?.present(activityViewController, animated: true, completion: nil)
+                            }
+                        }
+                    }, parent: parent)
+                })
+            }
+
+            children.append(UIAction(title: "Share Video URL", image: UIImage(sfString: SFSymbol.squareAndArrowUp, overrideString: "share")!.menuIcon()) { _ in
+                let shareItems: Array = [url]
+                let activityViewController: UIActivityViewController = UIActivityViewController(activityItems: shareItems, applicationActivities: nil)
+                if let presenter = activityViewController.popoverPresentationController {
+                    presenter.sourceView = self.videoView!
+                    presenter.sourceRect = self.videoView!.bounds
+                }
+                self.parentViewController?.present(activityViewController, animated: true, completion: nil)
+            })
+            children.append(UIAction(title: "Copy URL", image: UIImage(sfString: SFSymbol.docOnDocFill, overrideString: "copy")!.menuIcon()) { _ in
+                UIPasteboard.general.setValue(url, forPasteboardType: "public.url")
+                BannerUtil.makeBanner(text: "URL Copied", seconds: 5, context: self.parentViewController)
+            })
+
+            children.append(UIAction(title: "Open in default app", image: UIImage(sfString: SFSymbol.safariFill, overrideString: "nav")!.menuIcon()) { _ in
+                UIApplication.shared.open(url, options: convertToUIApplicationOpenExternalURLOptionsKeyDictionary([:]), completionHandler: nil)
+            })
+            
+            return UIMenu(title: "Video Options", image: nil, identifier: nil, children: children)
+        })
+    }
+
     func makeContextMenu() -> UIMenu {
 
         // Create a UIAction for sharing
@@ -3122,5 +3381,5 @@ extension LinkCellView: UIContextMenuInteractionDelegate {
         // Create and return a UIMenu with the share action
         return UIMenu(title: "Save into a Collection", children: buttons)
     }
-
 }
+

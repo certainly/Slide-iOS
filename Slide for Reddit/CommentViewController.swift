@@ -17,7 +17,7 @@ import SloppySwiper
 import UIKit
 import YYText
 
-class CommentViewController: MediaViewController, UITableViewDelegate, UITableViewDataSource, TTTAttributedCellDelegate, LinkCellViewDelegate, UISearchBarDelegate, UINavigationControllerDelegate, SubmissionMoreDelegate, ReplyDelegate, UIScrollViewDelegate {
+class CommentViewController: MediaViewController, UITableViewDelegate, UITableViewDataSource, TTTAttributedCellDelegate, LinkCellViewDelegate, UISearchBarDelegate, SubmissionMoreDelegate, ReplyDelegate, UIScrollViewDelegate {
     
 
 
@@ -327,6 +327,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
 
     init(submission: RSubmission, single: Bool) {
         self.submission = submission
+        self.sort = SettingValues.getCommentSorting(forSubreddit: submission.subreddit)
         self.single = single
         self.text = [:]
         super.init(nibName: nil, bundle: nil)
@@ -335,6 +336,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
 
     init(submission: RSubmission) {
         self.submission = submission
+        self.sort = SettingValues.getCommentSorting(forSubreddit: submission.subreddit)
         self.text = [:]
         super.init(nibName: nil, bundle: nil)
         setBarColors(color: ColorUtil.getColorForSub(sub: submission.subreddit))
@@ -349,6 +351,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
         hasSubmission = false
         if subreddit != nil {
             self.subreddit = subreddit!
+            self.sort = SettingValues.getCommentSorting(forSubreddit: self.subreddit)
             self.submission!.subreddit = subreddit!
         }
         self.text = [:]
@@ -361,6 +364,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
 
     init(submission: String, comment: String, context: Int, subreddit: String, np: Bool = false) {
         self.submission = RSubmission()
+        self.sort = SettingValues.getCommentSorting(forSubreddit: self.submission!.subreddit)
         self.submission!.name = submission
         self.submission!.subreddit = subreddit
         hasSubmission = false
@@ -420,6 +424,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
                 self.updateStringsSingle(queue)
                 self.doArrays()
                 self.isReply = false
+                self.isEditing = false
                 self.tableView.reloadData()
 
             })
@@ -445,6 +450,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
                 self.updateStringsSingle(queue)
                 self.doArrays()
                 self.isReply = false
+                self.isEditing = false
                 self.tableView.reloadData()
             })
         }
@@ -485,6 +491,8 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
                 self.content[comment.getIdentifier()] = comment
                 self.updateStringsSingle([comment])
                 self.doArrays()
+                self.isEditing = false
+                self.isReply = false
                 self.tableView.reloadData()
                 self.discard()
             })
@@ -608,7 +616,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
             if parent is PagingCommentViewController {
                 _ = (parent as! PagingCommentViewController).reloadCallback?()
             }
-            _ = CachedTitle.getTitle(submission: cell.link!, full: false, true)
+            _ = CachedTitle.getTitle(submission: cell.link!, full: false, true, gallery: false)
         } catch {
 
         }
@@ -802,7 +810,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
                 if offline {
                     self.loadOffline()
                 } else {
-                    try session?.getArticles(name, sort: sort == .suggested ? nil : sort, comments: (context.isEmpty ? nil : [context]), context: 3, completion: { (result) -> Void in
+                    try session?.getArticles(name, sort: sort == .suggested ? nil : sort, comments: (context.isEmpty ? nil : [context]), context: 3, limit: SettingValues.commentLimit, completion: { (result) -> Void in
                         switch result {
                         case .failure(let error):
                             print(error)
@@ -1113,15 +1121,34 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
 
     @objc func sort(_ selector: UIButton?) {
         if !offline {
-            let actionSheetController = DragDownAlertMenu(title: "Comment sorting", subtitle: "", icon: nil, themeColor: ColorUtil.accentColorForSub(sub: submission?.subreddit ?? ""), full: true)
+            let isDefault = UISwitch()
+            isDefault.onTintColor = ColorUtil.accentColorForSub(sub: self.sub)
+            let defaultLabel = UILabel()
+            defaultLabel.text = "Default for sub"
+            let group = UIView()
+            group.isUserInteractionEnabled = true
+            group.addSubviews(isDefault, defaultLabel)
+            defaultLabel.textColor = ColorUtil.accentColorForSub(sub: self.sub)
+            defaultLabel.centerYAnchor == group.centerYAnchor
+            isDefault.leftAnchor == group.leftAnchor
+            isDefault.centerYAnchor == group.centerYAnchor
+            defaultLabel.leftAnchor == isDefault.rightAnchor + 10
+            defaultLabel.rightAnchor == group.rightAnchor
+
+            let actionSheetController = DragDownAlertMenu(title: "Comment sorting", subtitle: "", icon: nil, extraView: group, themeColor: ColorUtil.accentColorForSub(sub: submission?.subreddit ?? ""), full: true)
 
             let selected = UIImage(sfString: SFSymbol.checkmarkCircle, overrideString: "selected")!.menuIcon()
-
+            let defaulted = UIImage(sfString: SFSymbol.textBadgeCheckmark, overrideString: "selected")!.menuIcon().getCopy(withColor: .green)
+            let defaultSort = SettingValues.getCommentSorting(forSubreddit: self.sub)
+            
             for c in CommentSort.cases {
-                actionSheetController.addAction(title: c.description, icon: sort == c ? selected : nil) {
+                actionSheetController.addAction(title: c.description, icon: sort == c ? (c == defaultSort && defaultSort != SettingValues.defaultCommentSorting ? defaulted : selected) : (c == defaultSort && defaultSort != SettingValues.defaultCommentSorting ? defaulted : nil)) {
                     self.sort = c
                     self.reset = true
                     self.live = false
+                    if isDefault.isOn {
+                        SettingValues.setCommentSorting(forSubreddit: self.sub, commentSorting: c)
+                    }
                     self.activityIndicator.removeFromSuperview()
                     let barButton = UIBarButtonItem(customView: self.activityIndicator)
                     self.navigationItem.rightBarButtonItems = [barButton]
@@ -1215,7 +1242,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
         panGesture = UIPanGestureRecognizer(target: self, action: #selector(self.panCell))
         panGesture.direction = .horizontal
         panGesture.delegate = self
-        
+        self.presentationController?.delegate  = self
 //        pan = UIPanGestureRecognizer(target: self, action: #selector(self.handlePop(_:)))
 //        pan.direction = .horizontal
         if !loaded && (single || forceLoad) {
@@ -1223,7 +1250,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
         }
         
         self.tableView.addGestureRecognizer(panGesture)
-        if navigationController != nil {
+        if navigationController != nil && !(navigationController!.delegate is CommentViewController) {
             panGesture.require(toFail: navigationController!.interactivePopGestureRecognizer!)
         }
     }
@@ -1453,16 +1480,23 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
         }
         self.isHiding = false
         didDisappearCompletely = false
-        
-        if !(parent is PagingCommentViewController) && self.navigationController != nil && !(self.navigationController!.delegate is SloppySwiper) {
+        let isModal = navigationController?.presentingViewController != nil || self.modalPresentationStyle == .fullScreen
+
+        if !isModal && !(parent is PagingCommentViewController) && self.navigationController != nil && !(self.navigationController!.delegate is SloppySwiper) {
             if (SettingValues.commentGesturesMode == .SWIPE_ANYWHERE || SettingValues.commentGesturesMode == .GESTURES) && !(self.navigationController?.delegate is SloppySwiper) {
                 swiper = SloppySwiper.init(navigationController: self.navigationController!)
                 self.navigationController!.delegate = swiper!
             }
-        }
-        
-        if let interactiveGesture = self.navigationController?.interactivePopGestureRecognizer {
-            self.tableView.panGestureRecognizer.require(toFail: interactiveGesture)
+            if let interactiveGesture = self.navigationController?.interactivePopGestureRecognizer {
+                self.tableView.panGestureRecognizer.require(toFail: interactiveGesture)
+            }
+        } else {
+            if isModal {
+                self.navigationController?.delegate = self
+                if self.navigationController is TapBehindModalViewController {
+                    (self.navigationController as! TapBehindModalViewController).del = self
+                }
+            }
         }
         
         self.navigationController?.setNavigationBarHidden(false, animated: true)
@@ -1486,7 +1520,7 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
         }
         var row = Double(0)
         for cell in cells {
-            UIView.animate(withDuration: 0.5, delay: 0.05 * row, options: .curveEaseInOut, animations: {
+            UIView.animate(withDuration: 0.5, delay: 0, options: .curveEaseInOut, animations: {
                 cell.alpha = 1
             }, completion: nil)
             row += 1
@@ -3048,5 +3082,22 @@ extension CommentViewController: UIViewControllerPreviewingDelegate {
 
         self.present(viewControllerToCommit, animated: true, completion: {
         })
+    }
+}
+
+extension CommentViewController: UINavigationControllerDelegate {
+    func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
+        // Fixes bug with corrupt nav stack
+        // https://stackoverflow.com/a/39457751/7138792
+        navigationController.interactivePopGestureRecognizer?.isEnabled = navigationController.viewControllers.count > 1
+        if navigationController.viewControllers.count == 1 {
+            self.navigationController?.interactivePopGestureRecognizer?.delegate = nil
+        }
+    }
+}
+
+extension CommentViewController: TapBehindModalViewControllerDelegate {
+    func shouldDismiss() -> Bool {
+        return false
     }
 }

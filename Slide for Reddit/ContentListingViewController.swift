@@ -61,7 +61,7 @@ class ContentListingViewController: MediaViewController, UICollectionViewDelegat
     
     func hide(index: Int) {
         baseData.content.remove(at: index)
-        flowLayout.reset(modal: presentingViewController != nil, vc: self)
+        flowLayout.reset(modal: presentingViewController != nil, vc: self, isGallery: false)
         tableView.reloadData()
     }
     
@@ -235,7 +235,7 @@ class ContentListingViewController: MediaViewController, UICollectionViewDelegat
         
         session = (UIApplication.shared.delegate as! AppDelegate).session
         
-        flowLayout.reset(modal: presentingViewController != nil, vc: self)
+        flowLayout.reset(modal: presentingViewController != nil, vc: self, isGallery: false)
         tableView.reloadData()
     }
     
@@ -246,7 +246,7 @@ class ContentListingViewController: MediaViewController, UICollectionViewDelegat
         
         if self.view.bounds.width != oldsize {
             oldsize = self.view.bounds.width
-            flowLayout.reset(modal: presentingViewController != nil, vc: self)
+            flowLayout.reset(modal: presentingViewController != nil, vc: self, isGallery: false)
             tableView.reloadData()
         }
     }
@@ -257,7 +257,7 @@ class ContentListingViewController: MediaViewController, UICollectionViewDelegat
         oldsize = self.view.bounds.width
         coordinator.animate(
             alongsideTransition: { [unowned self] _ in
-                self.flowLayout.reset(modal: self.presentingViewController != nil, vc: self)
+                self.flowLayout.reset(modal: self.presentingViewController != nil, vc: self, isGallery: false)
                 self.view.setNeedsLayout()
             }, completion: nil
         )
@@ -341,7 +341,7 @@ class ContentListingViewController: MediaViewController, UICollectionViewDelegat
             
             if thing is RSubmission {
                 let submission = thing as! RSubmission
-                return SingleSubredditViewController.sizeWith(submission, width, false)
+                return SingleSubredditViewController.sizeWith(submission, width, false, false)
             } else if thing is RComment {
                 let comment = thing as! RComment
                 if estimatedHeights[comment.id] == nil {
@@ -459,7 +459,7 @@ class ContentListingViewController: MediaViewController, UICollectionViewDelegat
         emptyStateView.isHidden = true
         baseData.reset()
         refreshControl.beginRefreshing()
-        flowLayout.reset(modal: presentingViewController != nil, vc: self)
+        flowLayout.reset(modal: presentingViewController != nil, vc: self, isGallery: false)
         flowLayout.invalidateLayout()
         tableView.reloadData()
         baseData.getData(reload: true)
@@ -512,10 +512,12 @@ class ContentListingViewController: MediaViewController, UICollectionViewDelegat
             // If there is no data after loading, show the empty state view.
             if self.baseData.content.count == 0 {
                 self.emptyStateView.isHidden = false
+            } else {
+                self.emptyStateView.isHidden = true
             }
             
             if before == 0 || before > self.baseData.content.count {
-                self.flowLayout.reset(modal: self.presentingViewController != nil, vc: self)
+                self.flowLayout.reset(modal: self.presentingViewController != nil, vc: self, isGallery: false)
                 self.tableView.reloadData()
                 
                 var top = CGFloat(0)
@@ -533,7 +535,7 @@ class ContentListingViewController: MediaViewController, UICollectionViewDelegat
                     paths.append(IndexPath.init(item: i, section: 0))
                 }
                 
-                self.flowLayout.reset(modal: self.presentingViewController != nil, vc: self)
+                self.flowLayout.reset(modal: self.presentingViewController != nil, vc: self, isGallery: false)
                 self.tableView.insertItems(at: paths)
             }
             self.endAndResetRefresh()
@@ -687,6 +689,7 @@ class EmptyStateView: UIView {
         
         addSubview(titleLabel)
         titleLabel.centerAnchors == centerAnchors
+        titleLabel.widthAnchor == self.widthAnchor - 50
         
         setText(title: "Title Placeholder", message: "Message Placeholder")
     }
@@ -700,9 +703,9 @@ class EmptyStateView: UIView {
         if let message = message {
             let firstPart = NSMutableAttributedString.init(string: title, attributes: convertToOptionalNSAttributedStringKeyDictionary([
                 convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): ColorUtil.theme.fontColor.withAlphaComponent(0.8),
-                convertFromNSAttributedStringKey(NSAttributedString.Key.font): UIFont.boldSystemFont(ofSize: 16),
+                convertFromNSAttributedStringKey(NSAttributedString.Key.font): UIFont.boldSystemFont(ofSize: 20),
             ]))
-            let secondPart = NSMutableAttributedString.init(string: "\n" + message, attributes: convertToOptionalNSAttributedStringKeyDictionary([
+            let secondPart = NSMutableAttributedString.init(string: "\n\n" + message, attributes: convertToOptionalNSAttributedStringKeyDictionary([
                 convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): ColorUtil.theme.fontColor.withAlphaComponent(0.5),
                 convertFromNSAttributedStringKey(NSAttributedString.Key.font): UIFont.systemFont(ofSize: 14),
             ]))

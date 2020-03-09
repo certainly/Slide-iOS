@@ -67,11 +67,21 @@ class SettingsLayout: BubbleSettingTableViewController {
         $0.onTintColor = ColorUtil.baseAccent
     }
     
+    var hideAwardCell: UITableViewCell = InsetCell()
+    var hideAward = UISwitch().then {
+        $0.onTintColor = ColorUtil.baseAccent
+    }
+
     var leftThumbCell: UITableViewCell = InsetCell()
     var leftThumb = UISwitch().then {
         $0.onTintColor = ColorUtil.baseAccent
     }
     
+    var thumbInfoCell: UITableViewCell = InsetCell()
+    var thumbInfo = UISwitch().then {
+        $0.onTintColor = ColorUtil.baseAccent
+    }
+
     var hideCell: UITableViewCell = InsetCell()
     var hide = UISwitch().then {
         $0.onTintColor = ColorUtil.baseAccent
@@ -122,9 +132,15 @@ class SettingsLayout: BubbleSettingTableViewController {
         } else if changed == selftext {
             SettingValues.showFirstParagraph = changed.isOn
             UserDefaults.standard.set(changed.isOn, forKey: SettingValues.pref_showFirstParagraph)
+        } else if changed == thumbInfo {
+            SettingValues.thumbTag = changed.isOn
+            UserDefaults.standard.set(changed.isOn, forKey: SettingValues.pref_thumbTag)
         } else if changed == largerThumbnail {
             SettingValues.largerThumbnail = changed.isOn
             UserDefaults.standard.set(changed.isOn, forKey: SettingValues.pref_largerThumbnail)
+        } else if changed == hideAward {
+            SettingValues.hideAwards = changed.isOn
+            UserDefaults.standard.set(changed.isOn, forKey: SettingValues.pref_hideAwards)
         } else if changed == more {
             SettingValues.menuButton = changed.isOn
             UserDefaults.standard.set(changed.isOn, forKey: SettingValues.pref_moreButton)
@@ -456,7 +472,8 @@ class SettingsLayout: BubbleSettingTableViewController {
         self.title = "Submission layout"
         
         createCell(selftextCell, selftext, isOn: SettingValues.showFirstParagraph, text: "Show selftext preview")
-        
+        createCell(thumbInfoCell, thumbInfo, isOn: SettingValues.thumbTag, text: "Show link type on thumbnail")
+
         createCell(cardModeCell, isOn: false, text: "Card type")
         cardModeCell.detailTextLabel?.textColor = ColorUtil.theme.fontColor
         cardModeCell.detailTextLabel?.text = SettingValues.postViewMode.rawValue.capitalize()
@@ -482,6 +499,7 @@ class SettingsLayout: BubbleSettingTableViewController {
         hideImageSelftextCell.detailTextLabel?.lineBreakMode = .byWordWrapping
 
         createCell(typeTitleCell, typeTitle, isOn: SettingValues.typeInTitle, text: "Content type in title")
+        createCell(hideAwardCell, hideAward, isOn: SettingValues.hideAwards, text: "Condense post award counts")
         createCell(smalltagCell, smalltag, isOn: SettingValues.smallerTag, text: "Smaller content tag")
         createCell(largerThumbnailCell, largerThumbnail, isOn: SettingValues.largerThumbnail, text: "Larger thumbnail")
         createCell(commentTitleCell, commentTitle, isOn: SettingValues.commentsInTitle, text: "Comment count in title")
@@ -562,6 +580,7 @@ class SettingsLayout: BubbleSettingTableViewController {
             case 4: return self.abbreviateScoreCell
             case 5: return self.domainInfoCell
             case 6: return self.hideImageSelftextCell
+            case 7: return self.hideAwardCell
             default: fatalError("Unknown row in section 2")
             }
         case 3:
@@ -569,6 +588,7 @@ class SettingsLayout: BubbleSettingTableViewController {
             case 0: return self.largerThumbnailCell
             case 1: return self.leftThumbCell
             case 2: return self.thumbLinkCell
+            case 3: return self.thumbInfoCell
                 
             default: fatalError("Unknown row in section 3")
             }
@@ -592,8 +612,8 @@ class SettingsLayout: BubbleSettingTableViewController {
         switch section {
         case 0: return 1
         case 1: return 4
-        case 2: return 7
-        case 3: return 3
+        case 2: return 8
+        case 3: return 4
         case 4: return 7
         default: fatalError("Unknown number of sections")
         }

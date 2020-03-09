@@ -17,29 +17,30 @@ class CachedTitle {
     static let baseFontSize: CGFloat = 18
 
     static func addTitle(s: RSubmission) {
-        titles[s.getId()] = titleForSubmission(submission: s, full: false, white: false)
+        titles[s.getId()] = titleForSubmission(submission: s, full: false, white: false, gallery: false)
     }
 
     static var titleFont = FontGenerator.fontOfSize(size: baseFontSize, submission: true)
+    static var titleFontSmall = FontGenerator.fontOfSize(size: 14, submission: true)
 
-    static func getTitle(submission: RSubmission, full: Bool, _ refresh: Bool, _ white: Bool = false) -> NSAttributedString {
+    static func getTitle(submission: RSubmission, full: Bool, _ refresh: Bool, _ white: Bool = false, gallery: Bool) -> NSAttributedString {
         let title = titles[submission.getId()]
-        if title == nil || refresh || full || white {
+        if title == nil || refresh || full || white || gallery {
             if white {
-                return titleForSubmission(submission: submission, full: full, white: white)
+                return titleForSubmission(submission: submission, full: full, white: white, gallery: gallery)
             }
             if !full {
-                titles[submission.getId()] = titleForSubmission(submission: submission, full: full, white: white)
+                titles[submission.getId()] = titleForSubmission(submission: submission, full: full, white: white, gallery: gallery)
                 return titles[submission.getId()]!
             } else {
-                return titleForSubmission(submission: submission, full: full, white: white)
+                return titleForSubmission(submission: submission, full: full, white: white, gallery: gallery)
             }
         } else {
             return title!
         }
     }
 
-    static func titleForSubmission(submission: RSubmission, full: Bool, white: Bool) -> NSAttributedString {
+    static func titleForSubmission(submission: RSubmission, full: Bool, white: Bool, gallery: Bool) -> NSAttributedString {
 
         var colorF = ColorUtil.theme.fontColor
         if white {
@@ -48,6 +49,11 @@ class CachedTitle {
         let brightF = colorF
         colorF = colorF.add(overlay: ColorUtil.theme.foregroundColor.withAlphaComponent(0.20))
 
+        if gallery {
+            let attributedTitle = NSMutableAttributedString(string: submission.title.unescapeHTML, attributes: convertToOptionalNSAttributedStringKeyDictionary([convertFromNSAttributedStringKey(NSAttributedString.Key.font): titleFontSmall, convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): brightF]))
+
+            return attributedTitle
+        }
         let attributedTitle = NSMutableAttributedString(string: submission.title.unescapeHTML, attributes: convertToOptionalNSAttributedStringKeyDictionary([convertFromNSAttributedStringKey(NSAttributedString.Key.font): titleFont, convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): brightF]))
 
         let spacer = NSMutableAttributedString.init(string: "  ")
@@ -82,49 +88,63 @@ class CachedTitle {
         if submission.gilded {
             let boldFont = FontGenerator.boldFontOfSize(size: 12, submission: true)
             attributedTitle.append(spacer)
-            for award in submission.awards {
-                let url = award.split("*")[0]
-                let count = Int(award.split(":")[1]) ?? 0
-                attributedTitle.append(spacer)
-                if let urlAsURL = URL(string: url),
-                    let flairData = try? Data(contentsOf: urlAsURL),
-                    let flairImage = UIImage.sd_image(with: flairData) {
-
-                    let flairAttrString = NSMutableAttributedString.yy_attachmentString(withContent: flairImage.imageScaled(to: CGSize.square(size: 20)), contentMode: UIView.ContentMode.center, attachmentSize: CachedTitle.getImageSize(fontSize: titleFont.pointSize * 0.75).size, alignTo: titleFont, alignment: YYTextVerticalAlignment.center)
-                    
-                    attributedTitle.append(flairAttrString)
+            if SettingValues.hideAwards {
+                var awardCount = submission.platinum + submission.silver + submission.gold
+                for award in submission.awards {
+                    awardCount += Int(award.split(":")[1]) ?? 0
                 }
+                attributedTitle.append(spacer)
+                let gild = NSMutableAttributedString.yy_attachmentString(withEmojiImage: UIImage(named: "gold")!, fontSize: titleFont.pointSize * 0.75)!
+                attributedTitle.append(gild)
+                if awardCount > 1 {
+                    let gilded = NSMutableAttributedString.init(string: "\u{00A0}x\(awardCount) ", attributes: convertToOptionalNSAttributedStringKeyDictionary([convertFromNSAttributedStringKey(NSAttributedString.Key.font): boldFont, convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): colorF]))
+                    attributedTitle.append(gilded)
+                }
+            } else {
+                for award in submission.awards {
+                    let url = award.split("*")[0]
+                    let count = Int(award.split(":")[1]) ?? 0
+                    attributedTitle.append(spacer)
+                    if let urlAsURL = URL(string: url) {
+                        //This code will cause runtime issues in XCode, but I can't find a better way to do this async. If you find a better way that is not dependent on the main thread please open a PR!
+                        let flairView = UIImageView(frame: CGRect(x: 0, y: 0, width: 20, height: 20))
+                        flairView.sd_setImage(with: urlAsURL, completed: nil)
+                        let flairImage = NSMutableAttributedString.yy_attachmentString(withContent: flairView, contentMode: UIView.ContentMode.center, attachmentSize: CachedTitle.getImageSize(fontSize: titleFont.pointSize * 0.75).size, alignTo: titleFont, alignment: YYTextVerticalAlignment.center)
+
+                        attributedTitle.append(flairImage)
+                    }
                     if count > 1 {
                         let gilded = NSMutableAttributedString.init(string: "\u{00A0}x\(submission.gold) ", attributes: convertToOptionalNSAttributedStringKeyDictionary([convertFromNSAttributedStringKey(NSAttributedString.Key.font): FontGenerator.boldFontOfSize(size: 12, submission: true), convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): colorF]))
                         attributedTitle.append(gilded)
                     }
-            }
-            if submission.platinum > 0 {
-                attributedTitle.append(spacer)
-                let gild = NSMutableAttributedString.yy_attachmentString(withEmojiImage: UIImage(named: "platinum")!, fontSize: titleFont.pointSize * 0.75)!
-                attributedTitle.append(gild)
-                if submission.platinum > 1 {
-                    let platinumed = NSMutableAttributedString.init(string: "\u{00A0}x\(submission.platinum) ", attributes: convertToOptionalNSAttributedStringKeyDictionary([convertFromNSAttributedStringKey(NSAttributedString.Key.font): boldFont, convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): colorF]))
-                    attributedTitle.append(platinumed)
                 }
-            }
-            
-            if submission.gold > 0 {
-                attributedTitle.append(spacer)
-                let gild = NSMutableAttributedString.yy_attachmentString(withEmojiImage: UIImage(named: "gold")!, fontSize: titleFont.pointSize * 0.75)!
-                attributedTitle.append(gild)
-                if submission.gold > 1 {
-                    let gilded = NSMutableAttributedString.init(string: "\u{00A0}x\(submission.gold) ", attributes: convertToOptionalNSAttributedStringKeyDictionary([convertFromNSAttributedStringKey(NSAttributedString.Key.font): boldFont, convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): colorF]))
-                    attributedTitle.append(gilded)
+                if submission.platinum > 0 {
+                    attributedTitle.append(spacer)
+                    let gild = NSMutableAttributedString.yy_attachmentString(withEmojiImage: UIImage(named: "platinum")!, fontSize: titleFont.pointSize * 0.75)!
+                    attributedTitle.append(gild)
+                    if submission.platinum > 1 {
+                        let platinumed = NSMutableAttributedString.init(string: "\u{00A0}x\(submission.platinum) ", attributes: convertToOptionalNSAttributedStringKeyDictionary([convertFromNSAttributedStringKey(NSAttributedString.Key.font): boldFont, convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): colorF]))
+                        attributedTitle.append(platinumed)
+                    }
                 }
-            }
-            if submission.silver > 0 {
-                attributedTitle.append(spacer)
-                let gild = NSMutableAttributedString.yy_attachmentString(withEmojiImage: UIImage(named: "silver")!, fontSize: titleFont.pointSize * 0.75)!
-                attributedTitle.append(gild)
-                if submission.silver > 1 {
-                    let silvered = NSMutableAttributedString.init(string: "\u{00A0}x\(submission.silver) ", attributes: convertToOptionalNSAttributedStringKeyDictionary([convertFromNSAttributedStringKey(NSAttributedString.Key.font): boldFont, convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): colorF]))
-                    attributedTitle.append(silvered)
+                
+                if submission.gold > 0 {
+                    attributedTitle.append(spacer)
+                    let gild = NSMutableAttributedString.yy_attachmentString(withEmojiImage: UIImage(named: "gold")!, fontSize: titleFont.pointSize * 0.75)!
+                    attributedTitle.append(gild)
+                    if submission.gold > 1 {
+                        let gilded = NSMutableAttributedString.init(string: "\u{00A0}x\(submission.gold) ", attributes: convertToOptionalNSAttributedStringKeyDictionary([convertFromNSAttributedStringKey(NSAttributedString.Key.font): boldFont, convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): colorF]))
+                        attributedTitle.append(gilded)
+                    }
+                }
+                if submission.silver > 0 {
+                    attributedTitle.append(spacer)
+                    let gild = NSMutableAttributedString.yy_attachmentString(withEmojiImage: UIImage(named: "silver")!, fontSize: titleFont.pointSize * 0.75)!
+                    attributedTitle.append(gild)
+                    if submission.silver > 1 {
+                        let silvered = NSMutableAttributedString.init(string: "\u{00A0}x\(submission.silver) ", attributes: convertToOptionalNSAttributedStringKeyDictionary([convertFromNSAttributedStringKey(NSAttributedString.Key.font): boldFont, convertFromNSAttributedStringKey(NSAttributedString.Key.foregroundColor): colorF]))
+                        attributedTitle.append(silvered)
+                    }
                 }
             }
         }
