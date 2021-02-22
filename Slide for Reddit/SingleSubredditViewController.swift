@@ -2918,6 +2918,11 @@ extension SingleSubredditViewController: SubmissionMoreDelegate {
         }
     }
 
+    func copyCer(_ cell: LinkCellView) {
+        PostActions.copyCer(cell: cell, parent: self, nav: self.navigationController, mutableList: false, delegate: self, index: 0)
+
+    }
+
     @available(iOS 13, *)
     func getMoreMenu(_ cell: LinkCellView) -> UIMenu? {
         if let nav = self.navigationController {

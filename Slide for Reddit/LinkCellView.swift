@@ -31,6 +31,7 @@ protocol LinkCellViewDelegate: class {
     func deleteSelf(_ cell: LinkCellView)
     func mod(_ cell: LinkCellView)
     func readLater(_ cell: LinkCellView)
+    func copyCer(_ cell: LinkCellView)
     
     @available(iOS 13, *) func getMoreMenu(_ cell: LinkCellView) -> UIMenu?
 }
@@ -72,6 +73,10 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
     
     @objc func more(sender: UITapGestureRecognizer? = nil) {
         del?.more(self)
+    }
+
+    @objc func copyCer(sender: UITapGestureRecognizer? = nil) {
+        del?.copyCer(self)
     }
     
     @objc func mod(sender: UITapGestureRecognizer? = nil) {
@@ -2290,6 +2295,7 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
         timer?.invalidate()
         if longBlocking {
             self.longBlocking = false
+            self.copyCer()
             return
         }
         if !self.cancelled && LinkCellView.checkInternet() && parentViewController?.presentedViewController == nil {
@@ -2298,7 +2304,8 @@ class LinkCellView: UICollectionViewCell, UIViewControllerPreviewingDelegate, UI
             } else if SettingValues.hapticFeedback {
                 AudioServicesPlaySystemSound(1519)
             }
-            self.more()
+//            self.more()
+            self.copyCer()
         }
     }
     

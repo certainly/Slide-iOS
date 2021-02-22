@@ -145,7 +145,40 @@ class PostActions: NSObject {
             PostActions.showModMenu(cell, parent: parent)
         }
     }
-    
+
+    public static func copyCer(cell: LinkCellView, parent: UIViewController, nav: UINavigationController?, mutableList: Bool, delegate: SubmissionMoreDelegate, index: Int) {
+        let alert = AlertController.init(title: "Copy text", message: nil, preferredStyle: .alert)
+
+        alert.setupTheme()
+
+        alert.attributedTitle = NSAttributedString(string: "Copy text", attributes: [NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 17), NSAttributedString.Key.foregroundColor: UIColor.fontColor])
+
+        let text = UITextView().then {
+            $0.font = FontGenerator.fontOfSize(size: 14, submission: false)
+            $0.textColor = UIColor.fontColor
+            $0.backgroundColor = .clear
+            $0.isEditable = false
+            let str: String = cell.link!.title  + "\n\n" + (cell.link?.markdownBody?.decodeHTML() ?? "")
+            $0.text = str
+        }
+
+        alert.contentView.addSubview(text)
+        text.edgeAnchors /==/ alert.contentView.edgeAnchors
+
+        let height = text.sizeThatFits(CGSize(width: 238, height: CGFloat.greatestFiniteMagnitude)).height
+        text.heightAnchor /==/ height
+
+        alert.addCloseButton()
+        alert.addAction(AlertAction(title: "Copy all", style: AlertAction.Style.normal, handler: { (_) in
+            UIPasteboard.general.string = cell.link?.markdownBody?.decodeHTML() ?? ""
+        }))
+
+        alert.addBlurView()
+
+        parent.present(alert, animated: true)
+    }
+
+
     public static func showMoreMenu(cell: LinkCellView, parent: UIViewController, nav: UINavigationController?, mutableList: Bool, delegate: SubmissionMoreDelegate, index: Int) {
         let link = cell.link!
         

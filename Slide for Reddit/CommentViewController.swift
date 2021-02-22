@@ -716,6 +716,12 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
             PostActions.showMoreMenu(cell: cell, parent: self, nav: self.navigationController, mutableList: false, delegate: self, index: 0)
         }
     }
+
+    func copyCer(_ cell: LinkCellView) {
+        if !offline {
+            PostActions.copyCer(cell: cell, parent: self, nav: self.navigationController, mutableList: false, delegate: self, index: 0)
+        }
+    }
     
     @available(iOS 13, *)
     func getMoreMenu(_ cell: LinkCellView) -> UIMenu? {
@@ -2851,6 +2857,8 @@ class CommentViewController: MediaViewController, UITableViewDelegate, UITableVi
             break
         case .PARENT_PREVIEW:
             break
+        case .COPYTEXT:
+            cell.copyTextCer()
         }
     }
     

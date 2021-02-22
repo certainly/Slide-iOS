@@ -1398,6 +1398,36 @@ class CommentDepthCell: MarginedTableViewCell, UIViewControllerPreviewingDelegat
         return actions
     }
 
+    func copyTextCer(){
+        let alert = AlertController.init(title: "Copy text", message: nil, preferredStyle: .alert)
+
+        alert.setupTheme()
+
+        alert.attributedTitle = NSAttributedString(string: "Copy text", attributes: [NSAttributedString.Key.font: UIFont.boldSystemFont(ofSize: 17), NSAttributedString.Key.foregroundColor: UIColor.fontColor])
+
+        let text = UITextView().then {
+            $0.font = FontGenerator.fontOfSize(size: 14, submission: false)
+            $0.textColor = UIColor.fontColor
+            $0.backgroundColor = .clear
+            $0.isEditable = false
+            $0.text = self.comment!.markdownBody.decodeHTML()
+        }
+
+        alert.contentView.addSubview(text)
+        text.edgeAnchors /==/ alert.contentView.edgeAnchors
+
+        let height = text.sizeThatFits(CGSize(width: 238, height: CGFloat.greatestFiniteMagnitude)).height
+        text.heightAnchor /==/ height
+
+        alert.addCloseButton()
+        alert.addAction(AlertAction(title: "Copy all", style: AlertAction.Style.normal, handler: { (_) in
+            UIPasteboard.general.string = self.comment!.markdownBody.decodeHTML()
+        }))
+
+        alert.addBlurView()
+        parent?.present(alert, animated: true)
+    }
+
     func more(_ par: CommentViewController) {
         if comment == nil {
             return
