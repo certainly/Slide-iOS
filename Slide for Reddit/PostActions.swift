@@ -166,7 +166,7 @@ class PostActions: NSObject {
         text.edgeAnchors /==/ alert.contentView.edgeAnchors
 
         let height = text.sizeThatFits(CGSize(width: 238, height: CGFloat.greatestFiniteMagnitude)).height
-        text.heightAnchor /==/ height
+        text.heightAnchor /==/ height + 100
 
         alert.addCloseButton()
         alert.addAction(AlertAction(title: "Copy all", style: AlertAction.Style.normal, handler: { (_) in
